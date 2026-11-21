@@ -1,3 +1,14 @@
-:root { font-family: system-ui, sans-serif; color: #172033; background: #f5f7fa; }
-body { margin: 0; }
-main { max-width: 48rem; margin: 4rem auto; padding: 1.5rem; }
+:root {font-family: system-ui,sans-serif; color:#172c36; background:#f6f7f4; font-synthesis:none}
+body {margin:0} main {display:grid; grid-template-columns:340px 1fr; height:100dvh}
+aside {overflow:auto; padding:28px; box-sizing:border-box; border-right:1px solid #d6ded9}
+h1 {font-size:30px; margin:8px 0 16px; letter-spacing:-1px} h2 {font-size:17px} h3 {font-size:16px; margin:8px 0}
+.eyebrow {font-size:11px; letter-spacing:2px; color:#427460; font-weight:700}
+p {line-height:1.5; font-size:14px; white-space:pre-wrap; overflow-wrap:anywhere} small {display:block; color:#52656b; overflow-wrap:anywhere}
+section {border-top:1px solid #d6ded9; margin-top:24px; padding-top:12px}
+.dataset {padding:12px 0} label {display:flex; gap:9px; align-items:center; cursor:pointer; font-weight:600} input {width:18px;height:18px;accent-color:#28735c}
+.dataset small {margin-top:8px} article {margin:18px 0; padding:12px; background:white; border-radius:8px}
+button {padding:8px 12px; border:1px solid #bacbc2; border-radius:6px; background:white; cursor:pointer}
+#map {min-width:0; height:100%; background:#dfe7e2}
+.point-label {box-shadow:none; border:0; background:rgba(255,255,255,.85); font-size:11px; padding:1px 4px}
+:focus-visible {outline:3px solid #28735c; outline-offset:3px}
+@media(max-width:700px) {main {grid-template-columns:1fr; grid-template-rows:42dvh 58dvh} aside {padding:16px; grid-row:2; border-right:0} #map {grid-row:1} h1 {font-size:24px} section {margin-top:16px}}

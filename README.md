@@ -1,8 +1,9 @@
-# Map Layers — etap 1
+# Map Layers — etap 2
 
-Szkielet Vite + JavaScript i walidator zaakceptowanego kontraktu danych v1.
-Nie ma jeszcze mapy, znaczników, etykiet, przełączników zestawów ani pomiaru.
-Przygotowano workflow GitHub Pages; samo wdrożenie wymaga konfiguracji repozytorium.
+Interaktywna mapa Leaflet 1.9.4 z podkładem OpenStreetMap, warstwami GeoJSON,
+etykietami i szczegółami wszystkich punktów we wspólnej lokalizacji.
+
+Strona: https://kociolekagent.github.io/map-layers/
 
 ## Wymagania i uruchomienie
 
@@ -30,7 +31,7 @@ Błąd walidacji przerywa build z niezerowym kodem wyjścia.
 
 ## Struktura
 
-- `index.html`, `src/main.js`, `src/styles.css` — minimalna strona startowa, bez mapy.
+- `index.html`, `src/main.js`, `src/styles.css` — mapa, panel warstw i bezpiecznie renderowane szczegóły.
 - `src/validation.js` — czysty walidator katalogu i GeoJSON, parser JSON oraz błędy z lokalizacją; bez zależności i bez operacji I/O.
 - `scripts/data-files.js` — odczyt plików względem katalogu danych, kontrola dostępności i zbiorcze zgłaszanie błędów zestawów.
 - `scripts/validate-data.js` — CLI walidujące wszystkie pliki, także ukrytych zestawów.
@@ -66,20 +67,41 @@ Inny katalog danych wewnątrz projektu można sprawdzić poleceniem:
 node scripts/validate-data.js public/data/catalog.json
 ```
 
-## Ograniczenia etapu
+## Warstwy i testy przeglądarkowe
 
-- Nie ma pobierania HTTP, obsługi ponawiania ani stanów widoczności w przeglądarce.
-  Brak lokalnego pliku jest obsłużony; błędy HTTP i izolacja błędów interfejsu należą do następnego etapu.
-- Tekst w danych nie jest interpretowany jako HTML. Wyświetlanie nazw i opisów punktów
-  oraz testy ich bezpiecznego renderowania powstaną wraz z interfejsem mapy.
-- Identyczne współrzędne pozostają osobnymi rekordami; wspólne szczegóły po kliknięciu
-  i jeden wierzchołek pomiaru nie są jeszcze implementowane.
-- Brak testów wydajności i przeglądarkowych; testy obecnego etapu działają w Node.js.
-- Około 1000 punktów to założenie skali, nie limit walidacji.
-- Dane w `public/` będą publicznie dostępne po przyszłej publikacji. Nie należy umieszczać tam sekretów.
+`src/datasets.js` obsługuje pobieranie, walidację, cache, stany widoczności
+oraz indeks dokładnych współrzędnych. `tests/datasets.test.js` sprawdza również
+wyścigi pobierania, ponawianie, izolację błędów i puste zestawy.
+`browser-tests/map.spec.js` sprawdza przykłady, szczegóły wspólnej lokalizacji,
+przełączniki, błędny/pusty zestaw oraz renderowanie nazw jako tekstu.
 
-Jedyną bezpośrednią zależnością developerską jest Vite. Testy używają `node:test`
-i `node:assert/strict`. Leaflet nie jest jeszcze instalowany, bo ten etap nie zawiera mapy.
+```bash
+PLAYWRIGHT_BROWSERS_PATH=.playwright-browsers npx playwright install chromium
+npm run build
+PLAYWRIGHT_BROWSERS_PATH=.playwright-browsers npm run test:browser
+```
+
+Testy przeglądarkowe blokują kafelki OSM, aby nie zależeć od zewnętrznej usługi.
+Workflow zachowuje istniejący sposób publikacji i dodatkowo uruchamia te testy.
+
+## Zachowanie i ograniczenia
+
+- Dane ładowane na żądanie; poprawne zestawy pozostają w pamięci.
+- Błąd odrzuca cały zestaw. Wyłączenie i włączenie ponawia próbę.
+- Ukrycie podczas pobierania pozostaje skuteczne po zakończeniu pobierania.
+- Znaczniki Canvas ograniczają liczbę elementów DOM; etykiety są stałymi tooltipami.
+  Warstwy są tworzone raz i ponownie wykorzystywane. Brak klastrowania i rozsuwania.
+- Etykiety mogą się nakładać; kliknięcie wspólnej lokalizacji pokazuje każdy
+  widoczny rekord w kolejności katalogu i pliku, bez zmieniania współrzędnych.
+- 1000 punktów nie jest twardym limitem. Wiele tysięcy etykiet może obciążać
+  słabsze urządzenia; nie przeprowadzono benchmarku urządzeń mobilnych.
+- Podkład OSM wymaga sieci, bez gwarancji dostępności. Poprawne dane biegunowe
+  pozostają niezmienione, choć wykraczają poza Web Mercator.
+- Znaczniki Canvas obsługują kliknięcia/dotyk, nie indywidualny fokus klawiatury.
+- Brak pomiaru, importu, backendu i kont użytkowników.
+- Dane w `public/` są publiczne. Kontrakt v1 pozostał niezmieniony.
+
+Zależności: Leaflet; developerskie: Vite i Playwright. Testy jednostkowe: node:test.
 
 ## GitHub Pages
 

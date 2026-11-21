@@ -1,15 +1,14 @@
 <!doctype html>
 <html lang="pl">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Map Layers</title>
-  </head>
-  <body>
-    <main>
-      <h1>Map Layers</h1>
-      <p id="status"></p>
-    </main>
-    <script type="module" src="./src/main.js"></script>
-  </body>
-</html>
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Map Layers</title></head>
+<body>
+<main>
+  <aside aria-label="Warstwy i szczegóły">
+    <header><span class="eyebrow">ATLAS PUNKTÓW</span><h1>Map Layers</h1><p id="status" role="status">Ładowanie katalogu…</p></header>
+    <section aria-labelledby="layers-title"><h2 id="layers-title">Zestawy danych</h2><div id="datasets"></div></section>
+    <section id="details" aria-label="Szczegóły punktów" aria-live="polite"></section>
+  </aside>
+  <div id="map" aria-label="Interaktywna mapa OpenStreetMap"></div>
+</main>
+<script type="module" src="./src/main.js"></script>
+</body></html>

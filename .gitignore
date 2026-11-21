@@ -3,3 +3,7 @@ dist/
 .npm-cache/
 .env
 .env.*
+
+.playwright-browsers/
+test-results/
+playwright-report/
