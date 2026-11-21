@@ -10,12 +10,21 @@ export function formatDistance(meters) {
 export function createMeasurement() {
   let active = false;
   let points = [];
+  let segments = [];
   return {
     get active() { return active; },
     get points() { return points.map(p=>[...p]); },
-    setActive(value) { active = value; points = []; },
-    clear() { points = []; },
-    add(point) { if (!active || points.length === 2) return false; points.push([...point]); return true; },
-    get distance() { return points.length === 2 ? distanceMeters(...points) : null; }
+    setActive(value) { active = value; },
+    finish() { if (!active || points.length < 2) return false; active = false; return true; },
+    resume() { if (active || !points.length) return false; active = true; return true; },
+    clear() { points = []; segments = []; },
+    undo() { if (!points.length) return false; points.pop(); segments.pop(); return true; },
+    add(point) {
+      if (!active) return false;
+      if (points.length) segments.push(distanceMeters(points.at(-1),point));
+      points.push([...point]); return true;
+    },
+    get distance() { return points.length >= 2 ? segments.reduce((sum,length)=>sum+length,0) : null; },
+    get lastDistance() { return segments.at(-1) ?? null; }
   };
 }

@@ -18,21 +18,30 @@ const measurement = createMeasurement();
 const measurementLayer = L.layerGroup().addTo(map);
 const measureToggle = document.querySelector('#measure-toggle');
 const measureClear = document.querySelector('#measure-clear');
+const measureUndo = document.querySelector('#measure-undo');
+const measureFinish = document.querySelector('#measure-finish');
+const measureResume = document.querySelector('#measure-resume');
 const measureResult = document.querySelector('#measure-result');
 function renderMeasurement() {
   measurementLayer.clearLayers();
   const points = measurement.points.map(([lng,lat]) => [lat,lng]);
-  if (points.length === 2) {
+  if (points.length >= 2) {
     L.polyline(points, {color:'#fff',weight:7,interactive:false}).addTo(measurementLayer);
     L.polyline(points, {color:'#8629b5',weight:4,dashArray:'8 5',interactive:false}).addTo(measurementLayer);
   }
-  points.forEach((point,index) => L.circleMarker(point, {radius:9,color:'#fff',weight:3,fillColor:'#8629b5',fillOpacity:1,interactive:false})
-    .bindTooltip(index === 0 ? 'A' : 'B', {permanent:true,direction:'top'}).addTo(measurementLayer));
+  points.forEach((point,index) => L.circleMarker(point, {radius:6,color:'#fff',weight:3,fillColor:'#8629b5',fillOpacity:1,interactive:false})
+    .bindTooltip(String(index + 1), {permanent:true,direction:'top'}).addTo(measurementLayer));
   measureToggle.setAttribute('aria-pressed', String(measurement.active));
-  measureToggle.textContent = measurement.active ? 'Zakończ pomiar' : 'Mierz odległość';
+  measureToggle.textContent = measurement.active ? 'Wstrzymaj' : 'Mierz odległość';
   measureClear.disabled = points.length === 0;
+  measureUndo.disabled = points.length === 0;
+  measureFinish.disabled = !measurement.active || points.length < 2;
+  measureResume.disabled = measurement.active || points.length === 0;
+  measureToggle.disabled = !measurement.active && points.length > 0;
+  if (measurement.active) map.doubleClickZoom.disable(); else map.doubleClickZoom.enable();
   map.getContainer().classList.toggle('measuring', measurement.active);
-  measureResult.textContent = !measurement.active ? 'Pomiar wyłączony.' : points.length === 0 ? 'Wskaż pierwsze miejsce (A).' : points.length === 1 ? 'Wskaż drugie miejsce (B).' : `Odległość: ${formatDistance(measurement.distance)}. Wyczyść, aby zmierzyć ponownie.`;
+  const status = measurement.active ? 'Dodawanie aktywne.' : points.length ? 'Dodawanie zakończone. Wznów, aby kontynuować.' : 'Pomiar wyłączony.';
+  measureResult.textContent = `${status} Punkty: ${points.length}. ` + (points.length < 2 ? (points.length === 1 ? 'Wskaż drugie miejsce po włączeniu dodawania.' : 'Włącz pomiar i wskaż pierwsze miejsce.') : `Łącznie: ${formatDistance(measurement.distance)}. Ostatni odcinek: ${formatDistance(measurement.lastDistance)}.`);
 }
 function addMeasurementPoint(coordinates) {
   if (measurement.add(coordinates)) renderMeasurement();
@@ -44,6 +53,11 @@ measureToggle.onclick = () => {
   renderMeasurement();
 };
 measureClear.onclick = () => { measurement.clear(); renderMeasurement(); };
+measureUndo.onclick = () => { measurement.undo(); renderMeasurement(); };
+measureFinish.onclick = () => { measurement.finish(); renderMeasurement(); };
+measureResume.onclick = () => {
+  if (measurement.resume()) { selected = null; showDetails(); renderMeasurement(); }
+};
 document.addEventListener('keydown', event => {
   if (event.key === 'Escape' && measurement.active) {
     measurement.setActive(false); map.doubleClickZoom.enable(); renderMeasurement();

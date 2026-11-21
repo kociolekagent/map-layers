@@ -114,17 +114,19 @@ Katalog jest kopiowany do `dist/data/catalog.json`, a pliki GeoJSON do
 Strona oraz wszystkie dane w `public/` po wdrożeniu są publiczne.
 Na planie GitHub Free również repozytorium źródłowe musi być publiczne.
 
-## Pomiar dwóch miejsc
+## Pomiar wielopunktowy
 
-Wybierz „Mierz odległość”, następnie kliknij A i B na mapie lub istniejących
-punktach. Linia i wynik pozostają do wyczyszczenia. „Wyczyść pomiar” rozpoczyna
-nowy pomiar; „Zakończ pomiar” lub Esc usuwa wynik i przywraca zwykłe kliknięcia.
-Przełączniki zestawów nie usuwają pomiaru. Dane źródłowe pozostają niezmienione.
+„Mierz odległość” rozpoczyna dodawanie kolejnych punktów jednej łamanej.
+Panel pokazuje liczbę punktów, sumę niezaokrąglonych odcinków i ostatni odcinek.
+Dwa punkty nadal dają zwykły pojedynczy pomiar. Przy 0–1 punktach brak długości.
+„Cofnij punkt” usuwa ostatni punkt również po zakończeniu; „Zakończ” wymaga
+co najmniej dwóch punktów i zachowuje wynik. „Wznów” jawnie włącza dalsze
+klikanie. „Wstrzymaj” lub Esc zachowuje nawet jeden punkt. „Wyczyść” usuwa
+geometrię; w aktywnym trybie można od razu klikać od nowa, poza nim należy
+wybrać „Mierz odległość”. Warstwy danych nie wpływają na pomiar.
 
-`src/measurement.js` zawiera niezależny stan i obliczenia (haversine, promień
-6371000 m jak w Leaflet). Wynik poniżej 1000 m jest zaokrąglany do metra,
-pozostałe do 0,01 km. To odległość po sferycznej powierzchni Ziemi, bez dróg
-i wysokości; nie jest pomiarem geodezyjnym. Linia jest prostym odcinkiem
-w projekcji mapy, a nie wizualizacją łuku wielkiego koła na dużych dystansach.
-Testy obejmują zero, znany odcinek, antypody, południk 180°, limit dwóch
-punktów, czyszczenie i izolację kliknięć od szczegółów punktów.
+`src/measurement.js` zachowuje obliczenia haversine (promień 6371000 m, jak
+Leaflet). Wyniki poniżej 1000 m są zaokrąglane do metra, pozostałe do 0,01 km.
+To model sferyczny bez wysokości i dróg, nie pomiar geodezyjny na elipsoidzie.
+Linia w projekcji mapy nie odwzorowuje łuku wielkiego koła na dużych dystansach.
+Brak twardego limitu punktów; bardzo długie pomiary mogą obciążać przeglądarkę.
