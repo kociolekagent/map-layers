@@ -3,7 +3,7 @@ const button = (text,click) => { const b=el('button',text);b.type='button';b.onc
 function field(form,name,value='',type='text') {
   const label=el('label',name), input=el(type==='textarea'?'textarea':'input');
   if(type!=='textarea') input.type=type;
-  input.value=value;label.append(input);form.append(label);return input;
+  input.setAttribute('aria-label',name);input.value=value;label.append(input);form.append(label);return input;
 }
 export function mountEditor(root, repository, initial, onChange, onLocate) {
   let snapshot=initial, chosen=initial.catalog.datasets[0].id, query='', busy=false;
@@ -37,7 +37,7 @@ export function mountEditor(root, repository, initial, onChange, onLocate) {
     create.onsubmit=e=>{e.preventDefault();run(()=>repository.createDataset({name:name.value,color:color.value}));};
     const selectLabel=el('label','Zestaw do edycji'),select=el('select');
     for(const d of snapshot.catalog.datasets) {const option=el('option',`${d.name} (${snapshot.collections[d.id].features.length})`);option.value=d.id;select.append(option);}
-    select.value=chosen;selectLabel.append(select);controls.append(selectLabel);
+    select.setAttribute('aria-label','Zestaw do edycji');select.value=chosen;selectLabel.append(select);controls.append(selectLabel);
     select.onchange=()=>{chosen=select.value;draw();};
     const d=snapshot.catalog.datasets.find(d=>d.id===chosen);
     const rename=el('form'),newName=field(rename,'Nazwa zestawu',d.name);newName.required=true;
