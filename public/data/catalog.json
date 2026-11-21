@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "datasets": [
+    {
+      "id": "miejsca",
+      "name": "Miejsca obserwacji",
+      "description": "Przykładowe punkty terenowe",
+      "file": "datasets/miejsca.geojson",
+      "color": "#2563EB",
+      "visibleByDefault": true
+    },
+    {
+      "id": "pomiary",
+      "name": "Punkty pomiarowe",
+      "file": "datasets/pomiary.geojson",
+      "color": "#DC2626",
+      "visibleByDefault": false
+    }
+  ]
+}

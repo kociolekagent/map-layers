@@ -1,0 +1,23 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "id": "punkt-001",
+      "geometry": { "type": "Point", "coordinates": [21.0122, 52.2297] },
+      "properties": {
+        "name": "Stanowisko A",
+        "description": "Pierwsze stanowisko w tej lokalizacji."
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "punkt-002",
+      "geometry": { "type": "Point", "coordinates": [21.0122, 52.2297] },
+      "properties": {
+        "name": "Stanowisko B",
+        "description": "Drugie stanowisko, niezależne od stanowiska A."
+      }
+    }
+  ]
+}

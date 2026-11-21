@@ -1,0 +1,20 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "id": "punkt-001",
+      "geometry": { "type": "Point", "coordinates": [21.02, 52.235] },
+      "properties": {
+        "name": "Punkt pomiarowy północny",
+        "description": "Punkt odniesienia do pomiaru odległości."
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "punkt-002",
+      "geometry": { "type": "Point", "coordinates": [21.025, 52.225] },
+      "properties": { "name": "Punkt pomiarowy południowy" }
+    }
+  ]
+}
