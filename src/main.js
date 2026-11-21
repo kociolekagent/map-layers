@@ -72,7 +72,8 @@ try {
     const row = element('div', undefined, 'dataset');
     const label = element('label');
     const input = element('input'); input.type = 'checkbox';
-    const swatch = element('span', '●'); swatch.style.color = dataset.color;
+    input.setAttribute('aria-label', dataset.name);
+    const swatch = element('span', '●'); swatch.setAttribute('aria-hidden', 'true'); swatch.style.color = dataset.color;
     label.append(input, swatch, document.createTextNode(dataset.name));
     const status = element('small'); status.setAttribute('aria-live', 'polite');
     row.append(label);
