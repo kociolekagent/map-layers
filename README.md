@@ -1,4 +1,4 @@
-# Map Layers — etap 3
+# Map Layers — etap 5A
 
 Interaktywna mapa Leaflet 1.9.4 z podkładem OpenStreetMap, warstwami GeoJSON,
 etykietami i szczegółami wszystkich punktów we wspólnej lokalizacji.
@@ -86,11 +86,11 @@ Workflow zachowuje istniejący sposób publikacji i dodatkowo uruchamia te testy
 
 ## Zachowanie i ograniczenia
 
-- Dane ładowane na żądanie; poprawne zestawy pozostają w pamięci.
+- Przy pierwszym uruchomieniu wszystkie dane trafiają do lokalnej bazy. W awaryjnym trybie odczytu dane źródłowe są ładowane na żądanie.
 - Błąd odrzuca cały zestaw. Wyłączenie i włączenie ponawia próbę.
 - Ukrycie podczas pobierania pozostaje skuteczne po zakończeniu pobierania.
 - Znaczniki Canvas ograniczają liczbę elementów DOM; etykiety są stałymi tooltipami.
-  Warstwy są tworzone raz i ponownie wykorzystywane. Brak klastrowania i rozsuwania.
+  Warstwy są ponownie wykorzystywane przy przełączaniu, a po edycji danych odtwarzane. Brak klastrowania i rozsuwania.
 - Etykiety mogą się nakładać; kliknięcie wspólnej lokalizacji pokazuje każdy
   widoczny rekord w kolejności katalogu i pliku, bez zmieniania współrzędnych.
 - 1000 punktów nie jest twardym limitem. Wiele tysięcy etykiet może obciążać
@@ -130,3 +130,42 @@ Leaflet). Wyniki poniżej 1000 m są zaokrąglane do metra, pozostałe do 0,01 k
 To model sferyczny bez wysokości i dróg, nie pomiar geodezyjny na elipsoidzie.
 Linia w projekcji mapy nie odwzorowuje łuku wielkiego koła na dużych dystansach.
 Brak twardego limitu punktów; bardzo długie pomiary mogą obciążać przeglądarkę.
+
+## Lokalna baza i edycja (5A)
+
+`src/repository.js` jest jedyną warstwą dostępu do IndexedDB (biblioteka `idb`).
+Mapa dostaje katalog i kolekcje, bez znajomości transakcji. `src/editor.js`
+obsługuje formularze CRUD i filtrowanie listy punktów po nazwie, opisie i ID.
+Nie było wcześniej osobnej wyszukiwarki; filtr korzysta z aktualnego stanu bazy.
+
+Baza `map-layers-local-v1`, schemat 1, magazyn `state`, rekord `workspace`:
+katalog i kolekcje GeoJSON. Pierwsza inicjalizacja waliduje wszystkie pliki,
+również ukryte, i atomowo zapisuje komplet. Powtórna inicjalizacja najpierw
+sprawdza bazę i nie pobiera ani nie nadpisuje danych. Aktualizacja aplikacji
+lub źródłowych GeoJSON nie zmienia istniejącej lokalnej kopii. Przyszłe migracje
+należy dopisywać w `upgrade`, zwiększając `SCHEMA_VERSION`, bez zmiany nazwy
+bazy lub kasowania rekordów. Zablokowana migracja zgłasza potrzebę zamknięcia kart.
+
+Każdy zapis czyta aktualny rekord w transakcji readwrite, zmienia tylko wskazane
+pola, waliduje komplet i czeka na commit. ID są stabilne; nowe są generowane
+przez UUID. Nieznane właściwości punktów, geometrii i kolekcji są zachowywane.
+Usunięcie zestawu usuwa jego punkty w tej samej transakcji. Zachowujemy kontrakt
+1–5 zestawów, dlatego ostatniego nie można usunąć. Usunięcia wymagają potwierdzenia.
+Po zapisie mapa, szczegóły, liczby punktów i filtr są aktualizowane bez przeładowania;
+widoczność istniejących warstw i pomiar pozostają zachowane.
+
+Błąd inicjalizacji lub niedostępne IndexedDB przełącza na źródłową mapę tylko
+do odczytu. Błąd zapisu pozostawia formularz i poprzednią mapę, pokazuje „Nie
+zapisano”, nigdy sukces. Odświeżenie pozwala ponowić inicjalizację. Częściowa baza
+nie jest traktowana jako prawidłowa i nie jest automatycznie kasowana.
+
+Dane są przypisane do przeglądarki, profilu i origin strony. Nie są wysyłane na
+GitHub, nie synchronizują się między urządzeniami. Inne karty widzą zmiany po
+odświeżeniu; zapisy są serializowane, ale edycja tych samych pól z dwóch kart
+stosuje ostatni zapis. Tryb prywatny, limity miejsca, czyszczenie danych witryny
+lub usunięcie danych przez przeglądarkę mogą spowodować utratę lokalnej kopii.
+Baza nie jest kopią zapasową. Import i eksport nie są jeszcze dostępne.
+Dane źródłowe w `public/` pozostały bez zmian. Podkład mapy nadal wymaga sieci.
+
+Testy repozytorium używają `fake-indexeddb`; CI testuje także rzeczywiste
+IndexedDB w Chromium, przeładowanie strony, CRUD, odmowę dostępu i błąd zapisu.

@@ -1,6 +1,8 @@
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import './styles.css';
+import { openRepository, seedFromFiles } from './repository.js';
+import { mountEditor } from './editor.js';
 import { createMeasurement, formatDistance } from './measurement.js';
 import { loadCatalog, createDatasetStore, visibleLocations, locationKey } from './datasets.js';
 
@@ -119,6 +121,7 @@ function render(states) {
 }
 showDetails();
 const catalogUrl = new URL('data/catalog.json', document.baseURI);
+async function startSource() {
 try {
   const catalog = await loadCatalog(catalogUrl);
   const store = createDatasetStore(catalog, catalogUrl, render);
@@ -141,3 +144,41 @@ try {
   await Promise.all(catalog.datasets.filter(d => d.visibleByDefault).map(d => store.setVisible(d.id, true)));
   document.querySelector('#status').textContent = 'Włącz zestawy, aby wyświetlić punkty. Nakładające się punkty mają wspólne szczegóły.';
 } catch (error) { document.querySelector('#status').textContent = `Błąd katalogu: ${error.message}`; }
+
+}
+
+let localStates = [];
+function applyLocal(snapshot) {
+  const visibility=new Map(localStates.map(s=>[s.dataset.id,s.visible]));
+  for(const layer of layers.values())map.removeLayer(layer);
+  layers.clear();rows.clear();document.querySelector('#datasets').replaceChildren();
+  localStates=snapshot.catalog.datasets.map(dataset=>({dataset,visible:visibility.get(dataset.id)??dataset.visibleByDefault??false,status:'ready',data:snapshot.collections[dataset.id]}));
+  for(const state of localStates) {
+    const row=element('div',undefined,'dataset'),label=element('label'),input=element('input');input.type='checkbox';input.setAttribute('aria-label',state.dataset.name);
+    const swatch=element('span','●');swatch.style.color=state.dataset.color;swatch.setAttribute('aria-hidden','true');
+    label.append(input,swatch,document.createTextNode(state.dataset.name));
+    const status=element('small');row.append(label,status);document.querySelector('#datasets').append(row);rows.set(state.dataset.id,{input,status});
+    input.onchange=()=>{state.visible=input.checked;render(localStates);};
+  }
+  render(localStates);
+}
+const editorRoot=document.querySelector('#editor');
+let repository;
+try {
+  repository=await openRepository(undefined,message=>{
+    const warning=element('p',message);warning.setAttribute('role','alert');editorRoot.prepend(warning);
+    const fieldset=editorRoot.querySelector('fieldset');if(fieldset)fieldset.disabled=true;
+  });
+  const snapshot=await repository.initialize(()=>seedFromFiles(catalogUrl));
+  applyLocal(snapshot);
+  mountEditor(editorRoot,repository,snapshot,applyLocal,(id,point)=>{
+    const state=localStates.find(s=>s.dataset.id===id);state.visible=true;render(localStates);
+    const [lng,lat]=point.geometry.coordinates;map.setView([lat,lng],Math.max(map.getZoom(),14));
+    selected=locationKey(point.geometry.coordinates);showDetails();
+  });
+  document.querySelector('#status').textContent='Dane lokalne z IndexedDB. Zmiany dotyczą tylko tej przeglądarki.';
+} catch(error) {
+  repository?.close();
+  editorRoot.textContent=`Edycja niedostępna: ${error.message}. Dane źródłowe dostępne tylko do odczytu. Aby ponowić inicjalizację, odśwież stronę.`;
+  await startSource();
+}

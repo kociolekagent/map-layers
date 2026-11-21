@@ -16,9 +16,11 @@
   },
   "devDependencies": {
     "@playwright/test": "1.65.1",
+    "fake-indexeddb": "6.2.8",
     "vite": "8.3.8"
   },
   "dependencies": {
+    "idb": "8.0.4",
     "leaflet": "1.9.4"
   }
 }

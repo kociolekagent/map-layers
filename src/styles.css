@@ -16,3 +16,7 @@ button {padding:8px 12px; border:1px solid #bacbc2; border-radius:6px; backgroun
 #map.measuring, #map.measuring .leaflet-interactive {cursor:crosshair}
 #measure-toggle[aria-pressed="true"] {background:#8629b5;color:white;border-color:#8629b5}
 #measure-result {font-weight:600} button:disabled {opacity:.5;cursor:default}
+
+#editor fieldset {border:0;padding:0;min-width:0} #editor label {display:block;margin:10px 0;font-size:13px}
+#editor input:not([type=color]), #editor textarea, #editor select {display:block;box-sizing:border-box;width:100%;height:auto;padding:7px;border:1px solid #bacbc2;border-radius:4px}
+#editor button {margin:4px 3px 4px 0} .editor-results {max-height:320px;overflow:auto} #editor form {margin-bottom:14px} #editor article {padding:8px}
