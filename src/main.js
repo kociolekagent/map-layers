@@ -1,6 +1,7 @@
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import './styles.css';
+import { createMeasurement, formatDistance } from './measurement.js';
 import { loadCatalog, createDatasetStore, visibleLocations, locationKey } from './datasets.js';
 
 const element = (tag, text, className) => {
@@ -13,6 +14,43 @@ const map = L.map('map', {preferCanvas: true}).setView([52.23, 21.01], 12);
 L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
   maxZoom: 19, attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
 }).addTo(map);
+const measurement = createMeasurement();
+const measurementLayer = L.layerGroup().addTo(map);
+const measureToggle = document.querySelector('#measure-toggle');
+const measureClear = document.querySelector('#measure-clear');
+const measureResult = document.querySelector('#measure-result');
+function renderMeasurement() {
+  measurementLayer.clearLayers();
+  const points = measurement.points.map(([lng,lat]) => [lat,lng]);
+  if (points.length === 2) {
+    L.polyline(points, {color:'#fff',weight:7,interactive:false}).addTo(measurementLayer);
+    L.polyline(points, {color:'#8629b5',weight:4,dashArray:'8 5',interactive:false}).addTo(measurementLayer);
+  }
+  points.forEach((point,index) => L.circleMarker(point, {radius:9,color:'#fff',weight:3,fillColor:'#8629b5',fillOpacity:1,interactive:false})
+    .bindTooltip(index === 0 ? 'A' : 'B', {permanent:true,direction:'top'}).addTo(measurementLayer));
+  measureToggle.setAttribute('aria-pressed', String(measurement.active));
+  measureToggle.textContent = measurement.active ? 'Zakończ pomiar' : 'Mierz odległość';
+  measureClear.disabled = points.length === 0;
+  map.getContainer().classList.toggle('measuring', measurement.active);
+  measureResult.textContent = !measurement.active ? 'Pomiar wyłączony.' : points.length === 0 ? 'Wskaż pierwsze miejsce (A).' : points.length === 1 ? 'Wskaż drugie miejsce (B).' : `Odległość: ${formatDistance(measurement.distance)}. Wyczyść, aby zmierzyć ponownie.`;
+}
+function addMeasurementPoint(coordinates) {
+  if (measurement.add(coordinates)) renderMeasurement();
+}
+measureToggle.onclick = () => {
+  measurement.setActive(!measurement.active);
+  if (measurement.active) { selected = null; showDetails(); map.doubleClickZoom.disable(); }
+  else map.doubleClickZoom.enable();
+  renderMeasurement();
+};
+measureClear.onclick = () => { measurement.clear(); renderMeasurement(); };
+document.addEventListener('keydown', event => {
+  if (event.key === 'Escape' && measurement.active) {
+    measurement.setActive(false); map.doubleClickZoom.enable(); renderMeasurement();
+  }
+});
+map.on('click', event => { if (measurement.active) addMeasurementPoint([event.latlng.lng,event.latlng.lat]); });
+renderMeasurement();
 const layers = new Map();
 const rows = new Map();
 let locations = new Map();
@@ -47,9 +85,12 @@ function render(states) {
       const group = L.layerGroup();
       for (const feature of state.data.features) {
         const [lng, lat] = feature.geometry.coordinates;
-        const marker = L.circleMarker([lat, lng], {radius: 7, color: state.dataset.color, fillColor: state.dataset.color, fillOpacity: 0.85, weight: 2});
+        const marker = L.circleMarker([lat, lng], {radius: 7, color: state.dataset.color, fillColor: state.dataset.color, fillOpacity: 0.85, weight: 2, bubblingMouseEvents: false});
         marker.bindTooltip(element('span', feature.properties.name), {permanent: true, direction: 'right', className: 'point-label'});
-        marker.on('click', () => { selected = locationKey(feature.geometry.coordinates); showDetails(); });
+        marker.on('click', () => {
+          if (measurement.active) { addMeasurementPoint(feature.geometry.coordinates); return; }
+          selected = locationKey(feature.geometry.coordinates); showDetails();
+        });
         group.addLayer(marker);
       }
       layers.set(state.dataset.id, group);

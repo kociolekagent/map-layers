@@ -34,3 +34,24 @@ test('names are text, not HTML',async({page})=>{
  await page.goto('./');await expect(page.locator('.point-label').first()).toHaveText('<b>Punkt</b>');
  await expect(page.locator('.point-label b')).toHaveCount(0);
 });
+test('two-point measurement isolates marker clicks, clears and exits',async({page})=>{
+ await page.goto('./');await expect(page.locator('.point-label')).toHaveCount(2);
+ const box=await page.locator('#map').boundingBox();
+ const click=()=>page.mouse.click(box.x+box.width/2,box.y+box.height/2);
+ await page.getByRole('button',{name:'Mierz odległość',exact:true}).click();
+ await click();await expect(page.locator('#measure-result')).toContainText('drugie miejsce');
+ await expect(page.locator('#details article')).toHaveCount(0);
+ await click();await expect(page.locator('#measure-result')).toContainText('Odległość: 0 m');
+ await page.mouse.click(box.x+box.width/2+100,box.y+box.height/2+100);
+ await expect(page.locator('#measure-result')).toContainText('Odległość: 0 m');
+ await page.getByLabel('Miejsca obserwacji',{exact:true}).uncheck();
+ await expect(page.locator('#measure-result')).toContainText('Odległość: 0 m');
+ await page.getByRole('button',{name:'Wyczyść pomiar',exact:true}).click();
+ await click();await page.mouse.click(box.x+box.width/2+100,box.y+box.height/2+100);
+ await expect(page.locator('#measure-result')).toContainText('Odległość:');
+ await expect(page.locator('#measure-result')).not.toContainText('Odległość: 0 m');
+ await page.keyboard.press('Escape');
+ await expect(page.locator('#measure-toggle')).toHaveAttribute('aria-pressed','false');
+ await page.getByLabel('Miejsca obserwacji',{exact:true}).check();await click();
+ await expect(page.locator('#details article')).toHaveCount(2);
+});

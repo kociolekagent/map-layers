@@ -1,4 +1,4 @@
-# Map Layers — etap 2
+# Map Layers — etap 3
 
 Interaktywna mapa Leaflet 1.9.4 z podkładem OpenStreetMap, warstwami GeoJSON,
 etykietami i szczegółami wszystkich punktów we wspólnej lokalizacji.
@@ -98,7 +98,7 @@ Workflow zachowuje istniejący sposób publikacji i dodatkowo uruchamia te testy
 - Podkład OSM wymaga sieci, bez gwarancji dostępności. Poprawne dane biegunowe
   pozostają niezmienione, choć wykraczają poza Web Mercator.
 - Znaczniki Canvas obsługują kliknięcia/dotyk, nie indywidualny fokus klawiatury.
-- Brak pomiaru, importu, backendu i kont użytkowników.
+- Brak pomiaru wielopunktowego, importu, backendu i kont użytkowników.
 - Dane w `public/` są publiczne. Kontrakt v1 pozostał niezmieniony.
 
 Zależności: Leaflet; developerskie: Vite i Playwright. Testy jednostkowe: node:test.
@@ -113,3 +113,18 @@ Katalog jest kopiowany do `dist/data/catalog.json`, a pliki GeoJSON do
 `dist/data/datasets/`; ścieżki zestawów należy rozwiązywać względem URL katalogu.
 Strona oraz wszystkie dane w `public/` po wdrożeniu są publiczne.
 Na planie GitHub Free również repozytorium źródłowe musi być publiczne.
+
+## Pomiar dwóch miejsc
+
+Wybierz „Mierz odległość”, następnie kliknij A i B na mapie lub istniejących
+punktach. Linia i wynik pozostają do wyczyszczenia. „Wyczyść pomiar” rozpoczyna
+nowy pomiar; „Zakończ pomiar” lub Esc usuwa wynik i przywraca zwykłe kliknięcia.
+Przełączniki zestawów nie usuwają pomiaru. Dane źródłowe pozostają niezmienione.
+
+`src/measurement.js` zawiera niezależny stan i obliczenia (haversine, promień
+6371000 m jak w Leaflet). Wynik poniżej 1000 m jest zaokrąglany do metra,
+pozostałe do 0,01 km. To odległość po sferycznej powierzchni Ziemi, bez dróg
+i wysokości; nie jest pomiarem geodezyjnym. Linia jest prostym odcinkiem
+w projekcji mapy, a nie wizualizacją łuku wielkiego koła na dużych dystansach.
+Testy obejmują zero, znany odcinek, antypody, południk 180°, limit dwóch
+punktów, czyszczenie i izolację kliknięć od szczegółów punktów.
