@@ -4,7 +4,12 @@ import { validateCatalog, validateFeatureCollection } from './validation.js';
 
 export const SCHEMA_VERSION = 1;
 export function validateSnapshot(snapshot) {
-  validateCatalog(snapshot.catalog);
+  if (snapshot.catalog?.version === 1 && Array.isArray(snapshot.catalog.datasets) && snapshot.catalog.datasets.length === 0) {
+    if (!snapshot.collections || typeof snapshot.collections !== 'object' || Array.isArray(snapshot.collections) || Object.keys(snapshot.collections).length) throw new Error('Niepoprawna pusta baza');
+  } else validateCatalog(snapshot.catalog);
+  if (!snapshot.collections || typeof snapshot.collections !== 'object' || Array.isArray(snapshot.collections)) throw new Error('Brak kolekcji');
+  const ids=snapshot.catalog.datasets.map(d=>d.id);
+  if(Object.keys(snapshot.collections).length!==ids.length || ids.some(id=>!Object.hasOwn(snapshot.collections,id)))throw new Error('Niespójne kolekcje zestawów');
   for (const d of snapshot.catalog.datasets) validateFeatureCollection(snapshot.collections[d.id], d.file);
   return snapshot;
 }
@@ -50,13 +55,26 @@ export async function openRepository(name = 'map-layers-local-v1', onUnavailable
   return {
     close: () => db.close(),
     async read() { const value=await db.get('state','workspace'); return value && validateSnapshot(value); },
-    async initialize(loadSeed) {
+    async initialize(loadSeed = () => ({catalog:{version:1,datasets:[]},collections:{}})) {
       const existing = await db.get('state','workspace');
       if (existing) return validateSnapshot(existing);
       const seed = validateSnapshot(await loadSeed());
       // Recheck under an exclusive transaction: another tab may have initialized meanwhile.
       return transaction(current => current ?? seed);
     },
+    importDataset(collection, fields, replaceId = null) {
+      validateFeatureCollection(collection);
+      return transaction(s=>{
+        let id=replaceId;
+        if(id) dataset(s,id);
+        else {
+          id=`d-${crypto.randomUUID()}`;
+          s.catalog.datasets.push({id,name:fields.name,color:fields.color,file:`datasets/${id}.geojson`,visibleByDefault:true});
+        }
+        s.collections[id]=structuredClone(collection);return s;
+      });
+    },
+    restore(snapshot) { validateSnapshot(snapshot);return transaction(()=>structuredClone(snapshot)); },
     createDataset(fields) {
       return transaction(s => {
         const id = `d-${crypto.randomUUID()}`;

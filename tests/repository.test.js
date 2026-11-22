@@ -36,8 +36,8 @@ test('dataset CRUD, stable IDs, cascade and contract bounds',async t=>{
  assert.equal(result.collections[id].features.length,0);await repo.renameDataset(id,'Zmiana');
  await repo.savePoint(id,null,{name:'P',longitude:21,latitude:52,description:''});
  result=await repo.deleteDataset(id);assert.equal(Object.hasOwn(result.collections,id),false);
- await repo.deleteDataset('pomiary');await assert.rejects(repo.deleteDataset('miejsca'),/datasets/);
- for(let i=0;i<4;i++)await repo.createDataset({name:`Z${i}`,color:'#112233'});
+ await repo.deleteDataset('pomiary');await repo.deleteDataset('miejsca');assert.equal((await repo.read()).catalog.datasets.length,0);
+ for(let i=0;i<5;i++)await repo.createDataset({name:`Z${i}`,color:'#112233'});
  await assert.rejects(repo.createDataset({name:'Szósty',color:'#112233'}),/datasets/);
  assert.equal((await repo.read()).catalog.datasets.length,5);
 });

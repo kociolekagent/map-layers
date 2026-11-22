@@ -1,10 +1,10 @@
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import './styles.css';
-import { openRepository, seedFromFiles } from './repository.js';
+import { openRepository } from './repository.js';
 import { mountEditor } from './editor.js';
 import { createMeasurement, formatDistance } from './measurement.js';
-import { loadCatalog, createDatasetStore, visibleLocations, locationKey } from './datasets.js';
+import { visibleLocations, locationKey } from './datasets.js';
 
 const element = (tag, text, className) => {
   const node = document.createElement(tag);
@@ -120,33 +120,6 @@ function render(states) {
   }
 }
 showDetails();
-const catalogUrl = new URL('data/catalog.json', document.baseURI);
-async function startSource() {
-try {
-  const catalog = await loadCatalog(catalogUrl);
-  const store = createDatasetStore(catalog, catalogUrl, render);
-  const panel = document.querySelector('#datasets');
-  for (const dataset of catalog.datasets) {
-    const row = element('div', undefined, 'dataset');
-    const label = element('label');
-    const input = element('input'); input.type = 'checkbox';
-    input.setAttribute('aria-label', dataset.name);
-    const swatch = element('span', '●'); swatch.setAttribute('aria-hidden', 'true'); swatch.style.color = dataset.color;
-    label.append(input, swatch, document.createTextNode(dataset.name));
-    const status = element('small'); status.setAttribute('aria-live', 'polite');
-    row.append(label);
-    if (dataset.description) row.append(element('p', dataset.description));
-    row.append(status); panel.append(row);
-    rows.set(dataset.id, {input, status});
-    input.addEventListener('change', () => store.setVisible(dataset.id, input.checked));
-  }
-  render(store.states);
-  await Promise.all(catalog.datasets.filter(d => d.visibleByDefault).map(d => store.setVisible(d.id, true)));
-  document.querySelector('#status').textContent = 'Włącz zestawy, aby wyświetlić punkty. Nakładające się punkty mają wspólne szczegóły.';
-} catch (error) { document.querySelector('#status').textContent = `Błąd katalogu: ${error.message}`; }
-
-}
-
 let localStates = [];
 function applyLocal(snapshot) {
   const visibility=new Map(localStates.map(s=>[s.dataset.id,s.visible]));
@@ -169,7 +142,7 @@ try {
     const warning=element('p',message);warning.setAttribute('role','alert');editorRoot.prepend(warning);
     const fieldset=editorRoot.querySelector('fieldset');if(fieldset)fieldset.disabled=true;
   });
-  const snapshot=await repository.initialize(()=>seedFromFiles(catalogUrl));
+  const snapshot=await repository.initialize();
   applyLocal(snapshot);
   mountEditor(editorRoot,repository,snapshot,applyLocal,(id,point)=>{
     const state=localStates.find(s=>s.dataset.id===id);state.visible=true;render(localStates);
@@ -179,6 +152,6 @@ try {
   document.querySelector('#status').textContent='Dane lokalne z IndexedDB. Zmiany dotyczą tylko tej przeglądarki.';
 } catch(error) {
   repository?.close();
-  editorRoot.textContent=`Edycja niedostępna: ${error.message}. Dane źródłowe dostępne tylko do odczytu. Aby ponowić inicjalizację, odśwież stronę.`;
-  await startSource();
+  editorRoot.textContent=`Edycja niedostępna: ${error.message}. Baza nie została zmieniona. Odśwież stronę, aby ponowić.`;
+  document.querySelector('#status').textContent='Baza niedostępna. Mapa i pomiar pozostają dostępne.';
 }

@@ -1,171 +1,100 @@
-# Map Layers — etap 5A
-
-Interaktywna mapa Leaflet 1.9.4 z podkładem OpenStreetMap, warstwami GeoJSON,
-etykietami i szczegółami wszystkich punktów we wspólnej lokalizacji.
+# Map Layers — lokalne dane, import i eksport
 
 Strona: https://kociolekagent.github.io/map-layers/
 
-## Wymagania i uruchomienie
+Statyczna aplikacja Vite + JavaScript, mapa Leaflet/OSM, warstwy, szczegóły,
+wyszukiwanie w panelu edycji, pomiar wielopunktowy i IndexedDB. Bez backendu.
 
-Node.js 22.12+ (zalecany Node.js 24 LTS) i npm.
+## Uruchomienie i testy
+
+Node.js 22.12+ (zalecany 24 LTS).
 
 ```bash
-cd /home/node/.openclaw/workspace/projects/map-layers
 npm ci --include=dev --cache .npm-cache --no-audit --no-fund
 npm run dev
-```
-
-Otwórz adres podany przez Vite, domyślnie http://127.0.0.1:5173.
-Serwer jest dostępny lokalnie na komputerze, na którym uruchomiono polecenie.
-
-```bash
-npm run validate
 npm test
 npm run build
 npm run preview
-```
-
-Podgląd buildu: domyślnie http://127.0.0.1:4173. Zatrzymanie serwera: Ctrl+C.
-Build najpierw waliduje wszystkie dane, następnie tworzy `dist/`.
-Błąd walidacji przerywa build z niezerowym kodem wyjścia.
-
-## Struktura
-
-- `index.html`, `src/main.js`, `src/styles.css` — mapa, panel warstw i bezpiecznie renderowane szczegóły.
-- `src/validation.js` — czysty walidator katalogu i GeoJSON, parser JSON oraz błędy z lokalizacją; bez zależności i bez operacji I/O.
-- `scripts/data-files.js` — odczyt plików względem katalogu danych, kontrola dostępności i zbiorcze zgłaszanie błędów zestawów.
-- `scripts/validate-data.js` — CLI walidujące wszystkie pliki, także ukrytych zestawów.
-- `public/data/catalog.json` — dwa zestawy, ich nazwy, kolory i początkowa widoczność.
-- `public/data/datasets/miejsca.geojson` — dwa punkty o identycznych współrzędnych.
-- `public/data/datasets/pomiary.geojson` — dwa kolejne punkty; ID mogą powtarzać się między zestawami.
-- `tests/validation.test.js` — reguły struktury, typów, tekstu, ID, ścieżek i współrzędnych.
-- `tests/files.test.js` — integracja plikowa i CLI, brak pliku, błędny JSON, błędny katalog i ukryte zestawy.
-- `docs/data-contract-v1.md` — reguły zaakceptowanego kontraktu i granica obecnego etapu.
-- `vite.config.js` — względne adresy zasobów (`base: './'`).
-- `package.json`, `package-lock.json` — polecenia, lokalna zależność Vite i przypięte wersje.
-- `.gitignore` — wykluczenia plików generowanych i lokalnych.
-- `plan.md` — zachowana bez zmian wcześniejsza notatka; zaakceptowany później kontrakt v1 ma pierwszeństwo.
-- `dist/`, `node_modules/`, `.npm-cache/` — wynik buildu, zależności i lokalny cache; nie są plikami źródłowymi.
-
-## Używanie walidatora
-
-```js
-import { validateCatalog, validateFeatureCollection, parseJson } from './src/validation.js';
-const catalog = validateCatalog(parseJson(text, 'catalog.json'));
-```
-
-`validateCatalog` zwraca katalog z domyślnym `visibleByDefault: false`, nie modyfikując wejścia.
-`validateFeatureCollection` zwraca cały wejściowy zestaw dopiero po poprawnej walidacji.
-Błędy mają klasę `DataValidationError`, pola `source`, `path` i czytelny `message`.
-Walidator kończy na pierwszym błędzie danego dokumentu; walidacja plikowa zbiera błędy
-ze wszystkich zestawów w `AggregateError`. Błąd katalogu zatrzymuje odczyt zestawów.
-Nieznane pola są zachowywane, ale nie wpływają na walidację.
-
-Inny katalog danych wewnątrz projektu można sprawdzić poleceniem:
-
-```bash
-node scripts/validate-data.js public/data/catalog.json
-```
-
-## Warstwy i testy przeglądarkowe
-
-`src/datasets.js` obsługuje pobieranie, walidację, cache, stany widoczności
-oraz indeks dokładnych współrzędnych. `tests/datasets.test.js` sprawdza również
-wyścigi pobierania, ponawianie, izolację błędów i puste zestawy.
-`browser-tests/map.spec.js` sprawdza przykłady, szczegóły wspólnej lokalizacji,
-przełączniki, błędny/pusty zestaw oraz renderowanie nazw jako tekstu.
-
-```bash
 PLAYWRIGHT_BROWSERS_PATH=.playwright-browsers npx playwright install chromium
-npm run build
 PLAYWRIGHT_BROWSERS_PATH=.playwright-browsers npm run test:browser
 ```
 
-Testy przeglądarkowe blokują kafelki OSM, aby nie zależeć od zewnętrznej usługi.
-Workflow zachowuje istniejący sposób publikacji i dodatkowo uruchamia te testy.
+Serwery lokalne: 127.0.0.1:5173 (dev), 127.0.0.1:4173 (preview).
+Testy Chromium wymagają bibliotek systemowych; CI instaluje je na runnerze.
+Workflow Pages nadal testuje, buduje i publikuje `dist/` przy push do main.
+Vite `base: './'` obsługuje podścieżkę repozytorium.
 
-## Zachowanie i ograniczenia
+## Architektura danych: przed i po
 
-- Przy pierwszym uruchomieniu wszystkie dane trafiają do lokalnej bazy. W awaryjnym trybie odczytu dane źródłowe są ładowane na żądanie.
-- Błąd odrzuca cały zestaw. Wyłączenie i włączenie ponawia próbę.
-- Ukrycie podczas pobierania pozostaje skuteczne po zakończeniu pobierania.
-- Znaczniki Canvas ograniczają liczbę elementów DOM; etykiety są stałymi tooltipami.
-  Warstwy są ponownie wykorzystywane przy przełączaniu, a po edycji danych odtwarzane. Brak klastrowania i rozsuwania.
-- Etykiety mogą się nakładać; kliknięcie wspólnej lokalizacji pokazuje każdy
-  widoczny rekord w kolejności katalogu i pliku, bez zmieniania współrzędnych.
-- 1000 punktów nie jest twardym limitem. Wiele tysięcy etykiet może obciążać
-  słabsze urządzenia; nie przeprowadzono benchmarku urządzeń mobilnych.
-- Podkład OSM wymaga sieci, bez gwarancji dostępności. Poprawne dane biegunowe
-  pozostają niezmienione, choć wykraczają poza Web Mercator.
-- Znaczniki Canvas obsługują kliknięcia/dotyk, nie indywidualny fokus klawiatury.
-- Brak pomiaru wielopunktowego, importu, backendu i kont użytkowników.
-- Dane w `public/` są publiczne. Kontrakt v1 pozostał niezmieniony.
+W etapie 5A pierwsze uruchomienie pobierało katalog i wszystkie GeoJSON do
+IndexedDB; brak dostępu do bazy uruchamiał awaryjny odczyt źródeł.
+Teraz IndexedDB jest jedynym źródłem danych użytkownika. Nie ma automatycznego
+pobierania przykładów, ani awaryjnego przełączania na nie. Błąd bazy pokazuje
+komunikat, pozostawiając mapę i pomiar dostępne bez danych.
 
-Zależności: Leaflet; developerskie: Vite i Playwright. Testy jednostkowe: node:test.
+Zachowano nazwę `map-layers-local-v1`, schemat 1, magazyn `state` i rekord
+`workspace` z `{catalog, collections}`. Zmiana nie wymaga migracji struktury:
+istniejący rekord pozostaje bez zmian; nowy zawiera zero zestawów. Inicjalizacja
+ponownie sprawdza rekord wewnątrz transakcji i nigdy nie nadpisuje danych.
+Przyszłe migracje należy dopisywać w `upgrade`, zwiększając `SCHEMA_VERSION`,
+bez zmiany nazwy bazy ani kasowania rekordów. Aktualizacje kodu/plików przykładów
+nie zmieniają lokalnej bazy. Testy jawnie tworzą stare bazy z przykładami.
 
-## GitHub Pages
+Lokalny workspace dopuszcza 0–5 zestawów, w tym usunięcie ostatniego. To osobna
+reguła lokalnego stanu; kontrakt katalogu źródłowego v1 (1–5) pozostaje bez zmian.
+Źródłowe pliki są zachowane do testów i ręcznego importu, nie sterują produkcją.
 
-Workflow `.github/workflows/pages.yml` dla gałęzi `main` uruchamia testy,
-waliduje dane, buduje projekt i publikuje wyłącznie `dist/`.
-W Settings → Pages należy wybrać źródło GitHub Actions.
-Vite `base: './'` zachowuje względne zasoby również pod `/map-layers/`.
-Katalog jest kopiowany do `dist/data/catalog.json`, a pliki GeoJSON do
-`dist/data/datasets/`; ścieżki zestawów należy rozwiązywać względem URL katalogu.
-Strona oraz wszystkie dane w `public/` po wdrożeniu są publiczne.
-Na planie GitHub Free również repozytorium źródłowe musi być publiczne.
+## Import i eksport
 
-## Pomiar wielopunktowy
+- **Pojedynczy zestaw:** wybierz `.geojson` lub `.json` typu FeatureCollection,
+  zawierający wyłącznie punkty zgodne z kontraktem v1 (w tym Feature.id i nazwa).
+  Podgląd pokazuje liczbę punktów oraz nazwę do nadania. Można utworzyć zestaw
+  albo wybrać istniejący do zastąpienia; zastąpienie wymaga potwierdzenia,
+  zachowuje ID, nazwę i kolor docelowego zestawu. Błędny rekord odrzuca cały plik.
+- **Eksport wybranego:** standardowy GeoJSON zawierający bieżącą kolekcję,
+  bez dopisywania pól do właściwości użytkownika. Przy imporcie do nowego
+  zestawu nazwę i kolor nadaje użytkownik.
+- **Eksport wszystkich:** `map-layers-backup.json`, jawna kopia JSON, NIE
+  pojedyncza kolekcja GeoJSON. Format:
+  `{ "format": "map-layers-backup", "version": 1, "snapshot": { "catalog": ..., "collections": ... } }`.
+  Katalog zawiera metadane, a `collections` mapuje ID zestawu na jego pełny
+  GeoJSON. Zachowuje puste zestawy, kolejność, wspólne ID punktów w różnych
+  zestawach i nieznane pola wszystkich obiektów. Nie dopisuje własnych pól do
+  danych użytkownika. Jedna płaska standardowa FeatureCollection nie określa
+  podziału zestawów ani pustych zestawów, dlatego kopia używa jawnego opakowania.
+- **Odtworzenie kopii:** ten sam wybór pliku rozpoznaje kopię, pokazuje nazwy
+  i liczności. Przycisk „Odtwórz kopię” wymaga potwierdzenia zastąpienia CAŁEJ
+  lokalnej bazy. Zapis jest atomowy; nie wykonujemy częściowego scalenia.
 
-„Mierz odległość” rozpoczyna dodawanie kolejnych punktów jednej łamanej.
-Panel pokazuje liczbę punktów, sumę niezaokrąglonych odcinków i ostatni odcinek.
-Dwa punkty nadal dają zwykły pojedynczy pomiar. Przy 0–1 punktach brak długości.
-„Cofnij punkt” usuwa ostatni punkt również po zakończeniu; „Zakończ” wymaga
-co najmniej dwóch punktów i zachowuje wynik. „Wznów” jawnie włącza dalsze
-klikanie. „Wstrzymaj” lub Esc zachowuje nawet jeden punkt. „Wyczyść” usuwa
-geometrię; w aktywnym trybie można od razu klikać od nowa, poza nim należy
-wybrać „Mierz odległość”. Warstwy danych nie wpływają na pomiar.
+Przenoszenie między urządzeniami: wyeksportuj kopię wszystkich zestawów,
+przenieś plik, wybierz go w aplikacji na drugim urządzeniu i potwierdź
+odtworzenie. Przed zastąpieniem warto wyeksportować dotychczasową bazę.
 
-`src/measurement.js` zachowuje obliczenia haversine (promień 6371000 m, jak
-Leaflet). Wyniki poniżej 1000 m są zaokrąglane do metra, pozostałe do 0,01 km.
-To model sferyczny bez wysokości i dróg, nie pomiar geodezyjny na elipsoidzie.
-Linia w projekcji mapy nie odwzorowuje łuku wielkiego koła na dużych dystansach.
-Brak twardego limitu punktów; bardzo długie pomiary mogą obciążać przeglądarkę.
+## Moduły
 
-## Lokalna baza i edycja (5A)
+- `src/repository.js` — transakcje, inicjalizacja, CRUD, import i odtworzenie.
+- `src/transfer.js` — rozpoznawanie formatów, walidacja importu i eksport.
+- `src/editor.js` — formularze, podgląd importu, potwierdzenia, filtr punktów.
+- `src/main.js`, `src/styles.css`, `index.html` — mapa i integracja interfejsu.
+- `src/measurement.js` — niezależny pomiar łamanej: suma, ostatni odcinek,
+  cofnięcie, zakończenie, jawne wznowienie i czyszczenie. Esc wstrzymuje.
+- `src/validation.js`, `docs/data-contract-v1.md` — niezmieniony kontrakt GeoJSON.
+- `src/datasets.js`, `scripts/`, `public/data/` — obsługa i walidacja przykładów,
+  testy historycznej logiki odczytu; brak produkcyjnego ładowania tych plików.
+- `tests/`, `browser-tests/` — testy jednostkowe, IndexedDB i interfejsu.
 
-`src/repository.js` jest jedyną warstwą dostępu do IndexedDB (biblioteka `idb`).
-Mapa dostaje katalog i kolekcje, bez znajomości transakcji. `src/editor.js`
-obsługuje formularze CRUD i filtrowanie listy punktów po nazwie, opisie i ID.
-Nie było wcześniej osobnej wyszukiwarki; filtr korzysta z aktualnego stanu bazy.
+## Ograniczenia
 
-Baza `map-layers-local-v1`, schemat 1, magazyn `state`, rekord `workspace`:
-katalog i kolekcje GeoJSON. Pierwsza inicjalizacja waliduje wszystkie pliki,
-również ukryte, i atomowo zapisuje komplet. Powtórna inicjalizacja najpierw
-sprawdza bazę i nie pobiera ani nie nadpisuje danych. Aktualizacja aplikacji
-lub źródłowych GeoJSON nie zmienia istniejącej lokalnej kopii. Przyszłe migracje
-należy dopisywać w `upgrade`, zwiększając `SCHEMA_VERSION`, bez zmiany nazwy
-bazy lub kasowania rekordów. Zablokowana migracja zgłasza potrzebę zamknięcia kart.
+Dane pozostają w przeglądarce/profilu i origin strony. Czyszczenie danych witryny,
+tryb prywatny lub usunięcie danych przez przeglądarkę może je utracić — eksportuj
+kopie. Brak synchronizacji. Inne karty widzą zmiany po odświeżeniu; transakcje
+są serializowane, a ostatni zapis tych samych pól wygrywa. Nieznane właściwości
+nieedytowane przez formularze są zachowywane. Eksport zawsze czyta bazę na nowo.
+Pliki importu i cała baza są walidowane w pamięci; bardzo duże pliki mogą
+obciążać przeglądarkę. Limit zestawów to 5, liczba punktów nie ma twardego limitu.
 
-Każdy zapis czyta aktualny rekord w transakcji readwrite, zmienia tylko wskazane
-pola, waliduje komplet i czeka na commit. ID są stabilne; nowe są generowane
-przez UUID. Nieznane właściwości punktów, geometrii i kolekcji są zachowywane.
-Usunięcie zestawu usuwa jego punkty w tej samej transakcji. Zachowujemy kontrakt
-1–5 zestawów, dlatego ostatniego nie można usunąć. Usunięcia wymagają potwierdzenia.
-Po zapisie mapa, szczegóły, liczby punktów i filtr są aktualizowane bez przeładowania;
-widoczność istniejących warstw i pomiar pozostają zachowane.
-
-Błąd inicjalizacji lub niedostępne IndexedDB przełącza na źródłową mapę tylko
-do odczytu. Błąd zapisu pozostawia formularz i poprzednią mapę, pokazuje „Nie
-zapisano”, nigdy sukces. Odświeżenie pozwala ponowić inicjalizację. Częściowa baza
-nie jest traktowana jako prawidłowa i nie jest automatycznie kasowana.
-
-Dane są przypisane do przeglądarki, profilu i origin strony. Nie są wysyłane na
-GitHub, nie synchronizują się między urządzeniami. Inne karty widzą zmiany po
-odświeżeniu; zapisy są serializowane, ale edycja tych samych pól z dwóch kart
-stosuje ostatni zapis. Tryb prywatny, limity miejsca, czyszczenie danych witryny
-lub usunięcie danych przez przeglądarkę mogą spowodować utratę lokalnej kopii.
-Baza nie jest kopią zapasową. Import i eksport nie są jeszcze dostępne.
-Dane źródłowe w `public/` pozostały bez zmian. Podkład mapy nadal wymaga sieci.
-
-Testy repozytorium używają `fake-indexeddb`; CI testuje także rzeczywiste
-IndexedDB w Chromium, przeładowanie strony, CRUD, odmowę dostępu i błąd zapisu.
+Znaczniki Canvas nie mają indywidualnego fokusu klawiatury; etykiety mogą się
+nakładać. Wspólna lokalizacja pokazuje wszystkie widoczne rekordy. Podkład OSM
+wymaga sieci. Pomiar korzysta z haversine (promień 6371000 m), bez wysokości
+ani dróg; nie jest elipsoidalnym pomiarem geodezyjnym. Prosta łamana na mapie
+nie przedstawia łuków wielkiego koła na dużych dystansach.

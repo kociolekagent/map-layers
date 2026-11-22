@@ -1,5 +1,15 @@
+import {readFile} from 'node:fs/promises';
+const catalog=JSON.parse(await readFile(new URL('../public/data/catalog.json',import.meta.url)));
+const collections={};for(const d of catalog.datasets)collections[d.id]=JSON.parse(await readFile(new URL('../public/data/'+d.file,import.meta.url)));
 import {test,expect} from '@playwright/test';
-test.beforeEach(async({page})=>{await page.route('https://tile.openstreetmap.org/**',route=>route.abort());});
+test.beforeEach(async({page})=>{
+ await page.route('https://tile.openstreetmap.org/**',route=>route.abort());
+ // Explicit legacy fixture: production no longer seeds examples.
+ await page.goto('./');
+ await page.evaluate(async snapshot=>{
+   await new Promise((resolve,reject)=>{const req=indexedDB.open('map-layers-local-v1',1);req.onupgradeneeded=()=>req.result.createObjectStore('state');req.onerror=()=>reject(req.error);req.onsuccess=()=>{const db=req.result;const tx=db.transaction('state','readwrite');tx.objectStore('state').put(snapshot,'workspace');tx.oncomplete=()=>{db.close();resolve()};tx.onabort=()=>reject(tx.error);};});
+ },{catalog,collections});
+});
 test('examples, duplicate details, independent toggles and safe labels',async({page})=>{
  const errors=[];page.on('pageerror',e=>errors.push(e.message));
  await page.goto('./');
@@ -16,21 +26,19 @@ test('examples, duplicate details, independent toggles and safe labels',async({p
  await expect(page.locator('#details article')).toHaveCount(0);
  expect(errors).toEqual([]);
 });
-test('empty and invalid dataset do not break map; retry succeeds',async({page})=>{
- await page.route('**/datasets/miejsca.geojson',r=>r.fulfill({json:{type:'FeatureCollection',features:[]}}));
- await page.route('**/datasets/pomiary.geojson',r=>r.fulfill({json:{type:'FeatureCollection',features:[{}]}}));
+test('empty and invalid imported datasets do not break map',async({page})=>{
  await page.goto('./');
- await expect(page.locator('#datasets')).toContainText('0 punktów');
- await page.getByLabel('Punkty pomiarowe',{exact:true}).check();
- await expect(page.locator('#datasets')).toContainText('Błąd:');
- await expect(page.locator('.point-label')).toHaveCount(0);
- await page.unroute('**/datasets/pomiary.geojson');
- await page.getByLabel('Punkty pomiarowe',{exact:true}).uncheck();
- await page.getByLabel('Punkty pomiarowe',{exact:true}).check();
+ const file=page.getByLabel('Plik do importu',{exact:true});
+ await file.setInputFiles({name:'bad.geojson',mimeType:'application/json',buffer:Buffer.from('{"type":"FeatureCollection","features":[{}]}')});
+ await expect(page.locator('#editor')).toContainText('Błąd importu:');
  await expect(page.locator('.point-label')).toHaveCount(2);
+ await file.setInputFiles({name:'empty.geojson',mimeType:'application/json',buffer:Buffer.from('{"type":"FeatureCollection","features":[]}')});
+ await expect(page.locator('#editor')).toContainText('Poprawny GeoJSON: 0 punktów');
+ await page.getByRole('button',{name:'Importuj zestaw',exact:true}).click();
+ await expect(page.getByLabel('empty',{exact:true})).toBeVisible();
 });
 test('names are text, not HTML',async({page})=>{
- await page.route('**/datasets/miejsca.geojson',async r=>{const response=await r.fetch();const data=await response.json();data.features[0].properties.name='<b>Punkt</b>';await r.fulfill({json:data});});
+ await page.evaluate(async()=>{await new Promise(resolve=>{const r=indexedDB.open('map-layers-local-v1');r.onsuccess=()=>{const db=r.result;const tx=db.transaction('state','readwrite');const store=tx.objectStore('state');const req=store.get('workspace');req.onsuccess=()=>{const s=req.result;s.collections.miejsca.features[0].properties.name='<b>Punkt</b>';store.put(s,'workspace');};tx.oncomplete=()=>{db.close();resolve()};};});});
  await page.goto('./');await expect(page.locator('.point-label').first()).toHaveText('<b>Punkt</b>');
  await expect(page.locator('.point-label b')).toHaveCount(0);
 });
@@ -96,10 +104,10 @@ test('local editor CRUD, search, map refresh and persistence',async({page})=>{
  page.once('dialog',d=>d.accept());await page.getByRole('button',{name:'Usuń zestaw',exact:true}).click();
  await expect(page.getByLabel('Lokalny po zmianie',{exact:true})).toHaveCount(0);
 });
-test('unavailable IndexedDB falls back to read-only source map',async({page})=>{
+test('unavailable IndexedDB never loads source data',async({page})=>{
  await page.addInitScript(()=>Object.defineProperty(window,'indexedDB',{get(){throw new Error('Storage denied')}}));
  await page.goto('./');await expect(page.locator('#editor')).toContainText('Edycja niedostępna');
- await expect(page.locator('.point-label')).toHaveCount(2);
+ await expect(page.locator('.point-label')).toHaveCount(0);
  await expect(page.getByRole('button',{name:'Utwórz zestaw',exact:true})).toHaveCount(0);
 });
 test('failed writes do not claim success or change the map',async({page})=>{
@@ -110,4 +118,24 @@ test('failed writes do not claim success or change the map',async({page})=>{
  await expect(page.locator('#editor')).toContainText('Nie zapisano:');
  await expect(page.getByLabel('Miejsca obserwacji',{exact:true})).toBeVisible();
  await expect(page.locator('#editor')).not.toContainText('Zapisano lokalnie.');
+});
+
+test('empty startup without source requests, export and replacement confirmation',async({page})=>{
+ await page.evaluate(async()=>{await new Promise(resolve=>{const r=indexedDB.open('map-layers-local-v1');r.onsuccess=()=>{const db=r.result;const tx=db.transaction('state','readwrite');tx.objectStore('state').delete('workspace');tx.oncomplete=()=>{db.close();resolve()};};});});
+ const requests=[];page.on('request',r=>{if(r.url().includes('/data/'))requests.push(r.url());});
+ await page.goto('./');await expect(page.locator('#editor')).toContainText('Baza jest pusta');
+ const file=page.getByLabel('Plik do importu',{exact:true});
+ await file.setInputFiles({name:'test.geojson',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(collections.miejsca))});
+ await page.getByRole('button',{name:'Importuj zestaw',exact:true}).click();
+ await expect(page.locator('.point-label')).toHaveCount(2);
+ const downloaded=page.waitForEvent('download');await page.getByRole('button',{name:'Eksportuj wszystkie (kopia JSON)',exact:true}).click();
+ const result=await downloaded;const backup=JSON.parse(await readFile(await result.path(),'utf8'));
+ expect(backup.snapshot.catalog.datasets).toHaveLength(1);
+ await file.setInputFiles({name:'empty.json',mimeType:'application/json',buffer:Buffer.from('{"type":"FeatureCollection","features":[]}')});
+ await page.getByLabel('Cel importu',{exact:true}).selectOption({index:1});
+ page.once('dialog',d=>d.dismiss());await page.getByRole('button',{name:'Importuj zestaw',exact:true}).click();await expect(page.locator('.point-label')).toHaveCount(2);
+ page.once('dialog',d=>d.accept());await page.getByRole('button',{name:'Importuj zestaw',exact:true}).click();await expect(page.locator('.point-label')).toHaveCount(0);
+ await file.setInputFiles({name:'backup.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(backup))});
+ page.once('dialog',d=>d.accept());await page.getByRole('button',{name:'Odtwórz kopię',exact:true}).click();await expect(page.locator('.point-label')).toHaveCount(2);
+ await page.reload();await expect(page.locator('.point-label')).toHaveCount(2);expect(requests).toEqual([]);
 });

@@ -1,3 +1,4 @@
+import { parseTransfer, exportDataset, exportBackup, download } from './transfer.js';
 const el = (tag,text) => { const n=document.createElement(tag);if(text!==undefined)n.textContent=text;return n; };
 const button = (text,click) => { const b=el('button',text);b.type='button';b.onclick=click;return b; };
 function field(form,name,value='',type='text') {
@@ -6,7 +7,7 @@ function field(form,name,value='',type='text') {
   input.setAttribute('aria-label',name);input.value=value;label.append(input);form.append(label);return input;
 }
 export function mountEditor(root, repository, initial, onChange, onLocate) {
-  let snapshot=initial, chosen=initial.catalog.datasets[0].id, query='', busy=false;
+  let snapshot=initial, chosen=initial.catalog.datasets[0]?.id, query='', busy=false;
   const message=el('p');message.setAttribute('role','status');
   const controls=el('fieldset');root.replaceChildren(el('h2','Dane lokalne'),el('p','Zmiany zapisują się tylko w tej przeglądarce. Nie zmieniają plików na GitHubie.'),message,controls);
   async function run(action) {
@@ -28,13 +29,50 @@ export function mountEditor(root, repository, initial, onChange, onLocate) {
     const id=chosen;
     form.onsubmit=event=>{event.preventDefault();run(()=>repository.savePoint(id,point?.id,{name:name.value,longitude:lng.valueAsNumber,latitude:lat.valueAsNumber,description:description.value}));};
   }
+  function transferControls() {
+    const area=el('div');controls.append(area);
+    area.append(button('Eksportuj wszystkie (kopia JSON)',async()=>{
+      try {download(exportBackup(await repository.read()),'map-layers-backup.json');message.textContent='Przygotowano kopię do pobrania.';}catch(e){message.textContent=`Błąd eksportu: ${e.message}`;}
+    }));
+    if(chosen)area.append(button('Eksportuj wybrany GeoJSON',async()=>{
+      try {download(exportDataset(await repository.read(),chosen),`${chosen}.geojson`);}catch(e){message.textContent=`Błąd eksportu: ${e.message}`;}
+    }));
+    const file=field(area,'Plik do importu','','file');file.accept='.geojson,.json';
+    const preview=el('div');area.append(preview);
+    file.onchange=async()=>{
+      preview.replaceChildren();const selected=file.files[0];if(!selected)return;
+      try {
+        const parsed=parseTransfer(await selected.text());
+        if(parsed.kind==='backup') {
+          const count=Object.values(parsed.value.collections).reduce((n,c)=>n+c.features.length,0);
+          preview.append(el('p',`Kopia: ${parsed.value.catalog.datasets.length} zestawów, ${count} punktów.`));
+          for(const d of parsed.value.catalog.datasets)preview.append(el('small',`${d.name}: ${parsed.value.collections[d.id].features.length} punktów`));
+          preview.append(button('Odtwórz kopię',()=>{if(confirm('Zastąpić CAŁĄ lokalną bazę zawartością kopii?'))run(()=>repository.restore(parsed.value));}));
+        } else {
+          const name=field(preview,'Nazwa importowanego zestawu',selected.name.replace(/\.(geojson|json)$/i,''));
+          const color=field(preview,'Kolor importowanego zestawu','#28735c','color');
+          preview.append(el('p',`Poprawny GeoJSON: ${parsed.value.features.length} punktów.`));
+          const target=el('select');target.setAttribute('aria-label','Cel importu');
+          const fresh=el('option','Nowy zestaw');fresh.value='';target.append(fresh);
+          for(const d of snapshot.catalog.datasets){const option=el('option',`Zastąp: ${d.name}`);option.value=d.id;target.append(option);}
+          preview.append(target,button('Importuj zestaw',()=>{
+            const id=target.value||null;
+            if(id&&!confirm('Zastąpić wszystkie punkty wybranego zestawu? Nazwa i kolor zestawu pozostaną bez zmian.'))return;
+            run(()=>repository.importDataset(parsed.value,{name:name.value,color:color.value},id));
+          }));
+        }
+      } catch(e) {preview.append(el('p',`Błąd importu: ${e.message}`));}
+    };
+  }
   function draw() {
-    if(!snapshot.catalog.datasets.some(d=>d.id===chosen))chosen=snapshot.catalog.datasets[0].id;
+    if(!snapshot.catalog.datasets.some(d=>d.id===chosen))chosen=snapshot.catalog.datasets[0]?.id;
     controls.replaceChildren();
     const create=el('form');const name=field(create,'Nazwa nowego zestawu');name.required=true;
     const color=field(create,'Kolor nowego zestawu','#28735c','color');
     const add=el('button','Utwórz zestaw');add.type='submit';add.disabled=snapshot.catalog.datasets.length>=5;create.append(add);controls.append(create);
     create.onsubmit=e=>{e.preventDefault();run(()=>repository.createDataset({name:name.value,color:color.value}));};
+    transferControls();
+    if(!chosen) {controls.append(el('p','Baza jest pusta. Utwórz zestaw lub zaimportuj plik.'));return;}
     const selectLabel=el('label','Zestaw do edycji'),select=el('select');
     for(const d of snapshot.catalog.datasets) {const option=el('option',`${d.name} (${snapshot.collections[d.id].features.length})`);option.value=d.id;select.append(option);}
     select.setAttribute('aria-label','Zestaw do edycji');select.value=chosen;selectLabel.append(select);controls.append(selectLabel);
@@ -44,7 +82,7 @@ export function mountEditor(root, repository, initial, onChange, onLocate) {
     const save=el('button','Zmień nazwę zestawu');save.type='submit';rename.append(save);controls.append(rename);
     rename.onsubmit=e=>{e.preventDefault();run(()=>repository.renameDataset(chosen,newName.value));};
     const remove=button('Usuń zestaw',()=>{if(confirm(`Usunąć zestaw „${d.name}” i wszystkie jego punkty?`))run(()=>repository.deleteDataset(chosen));});
-    remove.disabled=snapshot.catalog.datasets.length===1;controls.append(remove,button('Dodaj punkt',()=>pointForm()));
+    controls.append(remove,button('Dodaj punkt',()=>pointForm()));
     const host=el('div');host.className='point-form';controls.append(host);
     const search=field(controls,'Szukaj punktów',query,'search');
     const list=el('div');list.className='editor-results';controls.append(list);
