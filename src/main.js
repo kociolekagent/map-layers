@@ -1,6 +1,7 @@
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import './styles.css';
+import { createLocationPicker } from './location-picker.js';
 import { openRepository } from './repository.js';
 import { mountEditor } from './editor.js';
 import { createMeasurement, formatDistance } from './measurement.js';
@@ -45,10 +46,14 @@ function renderMeasurement() {
   const status = measurement.active ? 'Dodawanie aktywne.' : points.length ? 'Dodawanie zakończone. Wznów, aby kontynuować.' : 'Pomiar wyłączony.';
   measureResult.textContent = `${status} Punkty: ${points.length}. ` + (points.length < 2 ? (points.length === 1 ? 'Wskaż drugie miejsce po włączeniu dodawania.' : 'Włącz pomiar i wskaż pierwsze miejsce.') : `Łącznie: ${formatDistance(measurement.distance)}. Ostatni odcinek: ${formatDistance(measurement.lastDistance)}.`);
 }
+const locationPicker=createLocationPicker(map,()=>{
+  measurement.setActive(false);renderMeasurement();selected=null;showDetails();
+});
 function addMeasurementPoint(coordinates) {
   if (measurement.add(coordinates)) renderMeasurement();
 }
 measureToggle.onclick = () => {
+  locationPicker.clear();
   measurement.setActive(!measurement.active);
   if (measurement.active) { selected = null; showDetails(); map.doubleClickZoom.disable(); }
   else map.doubleClickZoom.enable();
@@ -58,14 +63,16 @@ measureClear.onclick = () => { measurement.clear(); renderMeasurement(); };
 measureUndo.onclick = () => { measurement.undo(); renderMeasurement(); };
 measureFinish.onclick = () => { measurement.finish(); renderMeasurement(); };
 measureResume.onclick = () => {
+  locationPicker.clear();
   if (measurement.resume()) { selected = null; showDetails(); renderMeasurement(); }
 };
 document.addEventListener('keydown', event => {
+  if(event.key === 'Escape' && locationPicker.active) {locationPicker.stop();return;}
   if (event.key === 'Escape' && measurement.active) {
     measurement.setActive(false); map.doubleClickZoom.enable(); renderMeasurement();
   }
 });
-map.on('click', event => { if (measurement.active) addMeasurementPoint([event.latlng.lng,event.latlng.lat]); });
+map.on('click', event => { const p=event.latlng.wrap();if(locationPicker.click([p.lng,p.lat]))return;if (measurement.active) addMeasurementPoint([event.latlng.lng,event.latlng.lat]); });
 renderMeasurement();
 const layers = new Map();
 const rows = new Map();
@@ -104,6 +111,7 @@ function render(states) {
         const marker = L.circleMarker([lat, lng], {radius: 7, color: state.dataset.color, fillColor: state.dataset.color, fillOpacity: 0.85, weight: 2, bubblingMouseEvents: false});
         marker.bindTooltip(element('span', feature.properties.name), {permanent: true, direction: 'right', className: 'point-label'});
         marker.on('click', () => {
+          if(locationPicker.click(feature.geometry.coordinates))return;
           if (measurement.active) { addMeasurementPoint(feature.geometry.coordinates); return; }
           selected = locationKey(feature.geometry.coordinates); showDetails();
         });
@@ -148,7 +156,7 @@ try {
     const state=localStates.find(s=>s.dataset.id===id);state.visible=true;render(localStates);
     const [lng,lat]=point.geometry.coordinates;map.setView([lat,lng],Math.max(map.getZoom(),14));
     selected=locationKey(point.geometry.coordinates);showDetails();
-  });
+  },locationPicker);
   document.querySelector('#status').textContent='Dane lokalne z IndexedDB. Zmiany dotyczą tylko tej przeglądarki.';
 } catch(error) {
   repository?.close();

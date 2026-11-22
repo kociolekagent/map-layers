@@ -20,3 +20,9 @@ button {padding:8px 12px; border:1px solid #bacbc2; border-radius:6px; backgroun
 #editor fieldset {border:0;padding:0;min-width:0} #editor label {display:block;margin:10px 0;font-size:13px}
 #editor input:not([type=color]), #editor textarea, #editor select {display:block;box-sizing:border-box;width:100%;height:auto;padding:7px;border:1px solid #bacbc2;border-radius:4px}
 #editor button {margin:4px 3px 4px 0} .editor-results {max-height:320px;overflow:auto} #editor form {margin-bottom:14px} #editor article {padding:8px}
+
+#map.picking, #map.picking .leaflet-interactive {cursor:crosshair}
+#editor button[aria-pressed="true"] {background:#087e8b;color:white}
+.draft-label {max-width:180px;white-space:normal;border-color:#087e8b}
+
+.address-results {max-height:220px;overflow:auto} .address-results button {width:100%;text-align:left;white-space:normal;overflow-wrap:anywhere}

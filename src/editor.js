@@ -1,3 +1,4 @@
+import { searchPlaces } from './geocoding.js';
 import { parseTransfer, exportDataset, exportBackup, download } from './transfer.js';
 const el = (tag,text) => { const n=document.createElement(tag);if(text!==undefined)n.textContent=text;return n; };
 const button = (text,click) => { const b=el('button',text);b.type='button';b.onclick=click;return b; };
@@ -6,7 +7,7 @@ function field(form,name,value='',type='text') {
   if(type!=='textarea') input.type=type;
   input.setAttribute('aria-label',name);input.value=value;label.append(input);form.append(label);return input;
 }
-export function mountEditor(root, repository, initial, onChange, onLocate) {
+export function mountEditor(root, repository, initial, onChange, onLocate, locationPicker) {
   let snapshot=initial, chosen=initial.catalog.datasets[0]?.id, query='', busy=false;
   const message=el('p');message.setAttribute('role','status');
   const controls=el('fieldset');root.replaceChildren(el('h2','Dane lokalne'),el('p','Zmiany zapisują się tylko w tej przeglądarce. Nie zmieniają plików na GitHubie.'),message,controls);
@@ -18,6 +19,7 @@ export function mountEditor(root, repository, initial, onChange, onLocate) {
     finally {busy=false;controls.disabled=false;}
   }
   function pointForm(point=null) {
+    locationPicker.clear();
     const host=controls.querySelector('.point-form');host.replaceChildren();
     const form=el('form');host.append(form);
     form.append(el('h3',point?'Edytuj punkt':'Nowy punkt'));
@@ -25,7 +27,33 @@ export function mountEditor(root, repository, initial, onChange, onLocate) {
     const lng=field(form,'Długość geograficzna',point?.geometry.coordinates[0]??'','number');lng.required=true;lng.min=-180;lng.max=180;lng.step='any';
     const lat=field(form,'Szerokość geograficzna',point?.geometry.coordinates[1]??'','number');lat.required=true;lat.min=-90;lat.max=90;lat.step='any';
     const description=field(form,'Opis punktu',point?.properties.description??'','textarea');
-    const submit=el('button','Zapisz punkt');submit.type='submit';form.append(submit,button('Anuluj',()=>host.replaceChildren()));
+    const pickingStatus=el('p');pickingStatus.setAttribute('role','status');
+    const cancelPick=button('Anuluj wskazywanie',()=>locationPicker.stop());cancelPick.disabled=true;
+    const choose=button('Wskaż na mapie',()=>locationPicker.start(([longitude,latitude])=>{
+      lng.value=longitude;lat.value=latitude;
+    },active=>{cancelPick.disabled=!active;choose.setAttribute('aria-pressed',String(active));pickingStatus.textContent=active?'Wskazywanie aktywne: kliknij mapę. Kolejne kliknięcie zmienia lokalizację. Esc anuluje.':'Wskazywanie wyłączone. Punkt zostanie zapisany dopiero po zatwierdzeniu formularza.';}));
+    choose.setAttribute('aria-pressed','false');form.append(choose,cancelPick,pickingStatus);
+    const updatePreview=()=>{if(lng.value!==''&&lat.value!==''&&lng.checkValidity()&&lat.checkValidity())locationPicker.show([lng.valueAsNumber,lat.valueAsNumber]);};
+    lng.addEventListener('input',updatePreview);lat.addEventListener('input',updatePreview);
+    const address=field(form,'Adres lub miejsce','','search');
+    const searchStatus=el('p');searchStatus.setAttribute('role','status');
+    const results=el('div');results.className='address-results';
+    const search=button('Szukaj adresu',async()=>{
+      search.disabled=true;results.replaceChildren();searchStatus.textContent='Wyszukiwanie…';
+      try {
+        const found=await searchPlaces(address.value);if(!form.isConnected)return;
+        searchStatus.textContent=found.length?`Wyniki: ${found.length}. Wybierz lokalizację.`:'Brak wyników. Zmień zapytanie.';
+        for(const result of found)results.append(button(result.label,()=>{
+          locationPicker.stop();lng.value=result.coordinates[0];lat.value=result.coordinates[1];locationPicker.show(result.coordinates,true);
+          searchStatus.textContent='Lokalizacja wybrana. Uzupełnij dane i zatwierdź zapis punktu.';
+        }));
+      } catch(error) {if(form.isConnected)searchStatus.textContent=`Błąd wyszukiwania: ${error.message}`;}
+      finally {search.disabled=false;}
+    });
+    address.addEventListener('keydown',event=>{if(event.key==='Enter'){event.preventDefault();if(!search.disabled)search.click();}});
+    const credit=el('a','Wyszukiwanie: Nominatim / © OpenStreetMap contributors');credit.href='https://www.openstreetmap.org/copyright';credit.target='_blank';credit.rel='noopener';
+    form.append(address.parentElement,search,searchStatus,results,credit,el('small','Zapytanie zostanie wysłane do OSMF po zatwierdzeniu. Nie wpisuj danych poufnych.'));
+    const submit=el('button','Zapisz punkt');submit.type='submit';form.append(submit,button('Anuluj',()=>{locationPicker.clear();host.replaceChildren();}));
     const id=chosen;
     form.onsubmit=event=>{event.preventDefault();run(()=>repository.savePoint(id,point?.id,{name:name.value,longitude:lng.valueAsNumber,latitude:lat.valueAsNumber,description:description.value}));};
   }
@@ -65,6 +93,7 @@ export function mountEditor(root, repository, initial, onChange, onLocate) {
     };
   }
   function draw() {
+    locationPicker.clear();
     if(!snapshot.catalog.datasets.some(d=>d.id===chosen))chosen=snapshot.catalog.datasets[0]?.id;
     controls.replaceChildren();
     const create=el('form');const name=field(create,'Nazwa nowego zestawu');name.required=true;

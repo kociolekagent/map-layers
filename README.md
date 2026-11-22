@@ -98,3 +98,39 @@ nakładać. Wspólna lokalizacja pokazuje wszystkie widoczne rekordy. Podkład O
 wymaga sieci. Pomiar korzysta z haversine (promień 6371000 m), bez wysokości
 ani dróg; nie jest elipsoidalnym pomiarem geodezyjnym. Prosta łamana na mapie
 nie przedstawia łuków wielkiego koła na dużych dystansach.
+
+## Lokalizacja punktu: adres i mapa
+
+W formularzu dodawania lub edycji punktu nadal można ręcznie wpisać longitude
+oraz latitude. „Wskaż na mapie” włącza osobny tryb: kolejne kliknięcia mapy
+lub istniejących znaczników ustawiają współrzędne i tymczasowy turkusowy punkt.
+„Anuluj wskazywanie”/Esc wyłącza tryb, zachowując wybrane współrzędne formularza.
+Anulowanie formularza, zmiana zestawu lub udany zapis usuwa podgląd. Wejście
+w ten tryb wstrzymuje pomiar bez kasowania go; wznowienie pomiaru kończy wskazywanie.
+Żaden z tych kroków nie zapisuje punktu — wymagany jest „Zapisz punkt”.
+
+Adres/miejsce wyszukuje się wyłącznie przyciskiem „Szukaj adresu” lub Enter
+w polu zapytania. Wybór wyniku ustawia współrzędne i przesuwa mapę. Lista wyników
+jest ograniczona do 5 pozycji, ma obsługę braku wyników, błędów i oczekiwania.
+Wyniki usługi i nazwy są renderowane jako tekst, nigdy HTML.
+
+Usługa: publiczny Nominatim OpenStreetMap, zaakceptowany przez operatora do
+sporadycznego użytku osobistego. Zasady:
+https://operations.osmfoundation.org/policies/nominatim/
+Maksimum **1 żądanie/s łącznie dla aplikacji**, nie dla użytkownika. Brak
+pełnotekstowego autocomplete, zapytań masowych i automatycznych ponowień.
+Przeglądarka przekazuje identyfikujący Referer origin; nie należy go blokować.
+Atrybucja OSM/ODbL jest w formularzu. Zapytania trafiają do OSMF — nie należy
+podawać danych poufnych. Usługa nie gwarantuje dostępności ani dokładności.
+
+`src/geocoding.js` stosuje odstęp 1100 ms, blokadę Web Locks między kartami
+(gdy dostępna), cache 20 zapytań w pamięci i localStorage (24h), timeout 15s.
+Nie zapewnia globalnego limitu między urządzeniami/przeglądarkami. Przed
+udostępnieniem wielu osobom należy zmienić dostawcę lub sposób limitowania.
+Nie ma kluczy API ani backendu. `public/geocoding.json` umożliwia wyłączenie
+usługi lub zmianę kompatybilnego endpointu bez zmiany i przebudowy JavaScript;
+plik jest odczytywany bez cache przy wyszukiwaniu. Nie zapisuj sekretów w nim.
+
+`src/location-picker.js` obsługuje wyłącznie tymczasowy podgląd. Zapis nadal
+przechodzi przez repozytorium IndexedDB. Import/eksport i schemat bazy bez zmian.
+Testy geokodera używają odpowiedzi zastępczych, nie obciążają publicznej usługi.
