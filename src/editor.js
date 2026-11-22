@@ -1,3 +1,4 @@
+import { appearance } from './appearance.js';
 import { searchPlaces } from './geocoding.js';
 import { parseTransfer, exportDataset, exportBackup, download } from './transfer.js';
 const el = (tag,text) => { const n=document.createElement(tag);if(text!==undefined)n.textContent=text;return n; };
@@ -107,6 +108,19 @@ export function mountEditor(root, repository, initial, onChange, onLocate, locat
     select.setAttribute('aria-label','Zestaw do edycji');select.value=chosen;selectLabel.append(select);controls.append(selectLabel);
     select.onchange=()=>{chosen=select.value;draw();};
     const d=snapshot.catalog.datasets.find(d=>d.id===chosen);
+    const style=appearance(snapshot.appearance?.[chosen]);
+    const styling=el('form');styling.append(el('h3','Wygląd zestawu'));
+    const mode=el('select');mode.setAttribute('aria-label','Sposób wyświetlania');
+    for(const [value,text] of [['points','Zwykłe punkty'],['circles','Koła o promieniu']]){const option=el('option',text);option.value=value;mode.append(option);}mode.value=style.mode;
+    const modeLabel=el('label','Sposób wyświetlania');modeLabel.append(mode);styling.append(modeLabel);
+    const styleColor=field(styling,'Kolor zestawu',d.color,'color');
+    const circleOptions=el('div');styling.append(circleOptions);
+    const radius=field(circleOptions,'Promień koła (m)',style.radius,'number');radius.min='0';radius.step='any';radius.required=true;
+    const opacity=field(circleOptions,'Wypełnienie (0–0,9)',style.fillOpacity,'number');opacity.min='0';opacity.max='0.9';opacity.step='any';opacity.required=true;
+    const weight=field(circleOptions,'Grubość obrysu (px)',style.weight,'number');weight.min='0';weight.max='20';weight.step='any';weight.required=true;
+    const showOptions=()=>{circleOptions.hidden=mode.value!=='circles';for(const input of [radius,opacity,weight])input.disabled=circleOptions.hidden;};mode.onchange=showOptions;showOptions();
+    const styleSave=el('button','Zapisz wygląd');styleSave.type='submit';styling.append(styleSave);controls.append(styling);
+    styling.onsubmit=e=>{e.preventDefault();run(()=>repository.saveAppearance(chosen,styleColor.value,{mode:mode.value,radius:radius.valueAsNumber,fillOpacity:opacity.valueAsNumber,weight:weight.valueAsNumber}));};
     const rename=el('form'),newName=field(rename,'Nazwa zestawu',d.name);newName.required=true;
     const save=el('button','Zmień nazwę zestawu');save.type='submit';rename.append(save);controls.append(rename);
     rename.onsubmit=e=>{e.preventDefault();run(()=>repository.renameDataset(chosen,newName.value));};

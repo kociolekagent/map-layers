@@ -184,3 +184,26 @@ test('geocoder selection fills form without auto-save, empty and network errors'
  await page.unroute('https://nominatim.openstreetmap.org/**');await page.route('https://nominatim.openstreetmap.org/**',r=>r.abort());
  await page.getByLabel('Adres lub miejsce',{exact:true}).fill('Awaria');await page.getByRole('button',{name:'Szukaj adresu',exact:true}).click();await expect(page.locator('#editor')).toContainText('Błąd wyszukiwania');
 });
+test('independent circles, styling persistence and click-through measurement',async({page})=>{
+ await page.goto('./');await page.getByLabel('Punkty pomiarowe',{exact:true}).check();
+ await expect(page.locator('.dataset-radius')).toHaveCount(0);
+ await expect(page.getByLabel('Promień koła (m)',{exact:true})).toBeHidden();
+ await page.getByLabel('Sposób wyświetlania',{exact:true}).selectOption('circles');
+ await page.getByLabel('Promień koła (m)',{exact:true}).fill('1000');
+ await page.getByLabel('Wypełnienie (0–0,9)',{exact:true}).fill('0.3');
+ await page.getByLabel('Grubość obrysu (px)',{exact:true}).fill('4');
+ await page.getByRole('button',{name:'Zapisz wygląd',exact:true}).click();
+ await expect(page.locator('.dataset-radius')).toHaveCount(2);
+ await expect(page.locator('.dataset-radius').first()).toHaveAttribute('fill-opacity','0.3');
+ await expect(page.locator('.point-label')).toHaveCount(4);
+ await page.getByLabel('Zestaw do edycji',{exact:true}).selectOption('pomiary');
+ await expect(page.getByLabel('Sposób wyświetlania',{exact:true})).toHaveValue('points');
+ const box=await page.locator('#map').boundingBox();
+ await page.mouse.click(box.x+box.width/2,box.y+box.height/2);await expect(page.locator('#details article')).toHaveCount(2);
+ await page.getByRole('button',{name:'Mierz odległość',exact:true}).click();
+ await page.mouse.click(box.x+box.width/2+30,box.y+box.height/2+30);
+ await expect(page.locator('#measure-result')).toContainText('Punkty: 1');
+ await page.reload();await expect(page.locator('.dataset-radius')).toHaveCount(2);
+ await expect(page.getByLabel('Promień koła (m)',{exact:true})).toHaveValue('1000');
+ await page.getByLabel('Miejsca obserwacji',{exact:true}).uncheck();await expect(page.locator('.dataset-radius')).toHaveCount(0);
+});

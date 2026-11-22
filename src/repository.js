@@ -1,3 +1,4 @@
+import { appearance } from './appearance.js';
 import { openDB } from 'idb';
 import { loadCatalog, readJson } from './datasets.js';
 import { validateCatalog, validateFeatureCollection } from './validation.js';
@@ -11,6 +12,10 @@ export function validateSnapshot(snapshot) {
   const ids=snapshot.catalog.datasets.map(d=>d.id);
   if(Object.keys(snapshot.collections).length!==ids.length || ids.some(id=>!Object.hasOwn(snapshot.collections,id)))throw new Error('Niespójne kolekcje zestawów');
   for (const d of snapshot.catalog.datasets) validateFeatureCollection(snapshot.collections[d.id], d.file);
+  if(snapshot.appearance!==undefined) {
+    if(!snapshot.appearance||typeof snapshot.appearance!=='object'||Array.isArray(snapshot.appearance))throw new Error('Niepoprawne ustawienia zestawów');
+    for(const [id,value] of Object.entries(snapshot.appearance)) {if(!ids.includes(id))throw new Error('Wygląd nieistniejącego zestawu');appearance(value);}
+  }
   return snapshot;
 }
 export async function seedFromFiles(url, fetcher = fetch) {
@@ -82,8 +87,12 @@ export async function openRepository(name = 'map-layers-local-v1', onUnavailable
         s.collections[id]={type:'FeatureCollection',features:[]};return s;
       });
     },
+    saveAppearance(id,color,settings) { return transaction(s=>{
+      dataset(s,id).color=color;
+      s.appearance??={};s.appearance[id]={...s.appearance[id],...appearance(settings)};return s;
+    }); },
     renameDataset(id,name) { return transaction(s=>{dataset(s,id).name=name;return s;}); },
-    deleteDataset(id) { return transaction(s=>{dataset(s,id);s.catalog.datasets=s.catalog.datasets.filter(d=>d.id!==id);delete s.collections[id];return s;}); },
+    deleteDataset(id) { return transaction(s=>{dataset(s,id);s.catalog.datasets=s.catalog.datasets.filter(d=>d.id!==id);delete s.collections[id];if(s.appearance)delete s.appearance[id];return s;}); },
     savePoint(datasetId, pointId, fields) {
       return transaction(s=>{
         dataset(s,datasetId);

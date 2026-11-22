@@ -1,3 +1,4 @@
+import { appearance } from './appearance.js';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import './styles.css';
@@ -17,6 +18,8 @@ const map = L.map('map', {preferCanvas: true}).setView([52.23, 21.01], 12);
 L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
   maxZoom: 19, attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
 }).addTo(map);
+const circlePane=map.createPane('dataset-circles');circlePane.style.zIndex='390';circlePane.style.pointerEvents='none';
+const circleRenderer=L.svg({pane:'dataset-circles'});
 const measurement = createMeasurement();
 const measurementLayer = L.layerGroup().addTo(map);
 const measureToggle = document.querySelector('#measure-toggle');
@@ -108,6 +111,8 @@ function render(states) {
       const group = L.layerGroup();
       for (const feature of state.data.features) {
         const [lng, lat] = feature.geometry.coordinates;
+        const style=appearance(state.appearance);
+        if(style.mode==='circles') group.addLayer(L.circle([lat,lng],{radius:style.radius,color:state.dataset.color,fillColor:state.dataset.color,fillOpacity:style.fillOpacity,weight:style.weight,interactive:false,renderer:circleRenderer,className:'dataset-radius'}));
         const marker = L.circleMarker([lat, lng], {radius: 7, color: state.dataset.color, fillColor: state.dataset.color, fillOpacity: 0.85, weight: 2, bubblingMouseEvents: false});
         marker.bindTooltip(element('span', feature.properties.name), {permanent: true, direction: 'right', className: 'point-label'});
         marker.on('click', () => {
@@ -133,7 +138,7 @@ function applyLocal(snapshot) {
   const visibility=new Map(localStates.map(s=>[s.dataset.id,s.visible]));
   for(const layer of layers.values())map.removeLayer(layer);
   layers.clear();rows.clear();document.querySelector('#datasets').replaceChildren();
-  localStates=snapshot.catalog.datasets.map(dataset=>({dataset,visible:visibility.get(dataset.id)??dataset.visibleByDefault??false,status:'ready',data:snapshot.collections[dataset.id]}));
+  localStates=snapshot.catalog.datasets.map(dataset=>({dataset,visible:visibility.get(dataset.id)??dataset.visibleByDefault??false,status:'ready',data:snapshot.collections[dataset.id],appearance:snapshot.appearance?.[dataset.id]}));
   for(const state of localStates) {
     const row=element('div',undefined,'dataset'),label=element('label'),input=element('input');input.type='checkbox';input.setAttribute('aria-label',state.dataset.name);
     const swatch=element('span','●');swatch.style.color=state.dataset.color;swatch.setAttribute('aria-hidden','true');

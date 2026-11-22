@@ -134,3 +134,27 @@ plik jest odczytywany bez cache przy wyszukiwaniu. Nie zapisuj sekretów w nim.
 `src/location-picker.js` obsługuje wyłącznie tymczasowy podgląd. Zapis nadal
 przechodzi przez repozytorium IndexedDB. Import/eksport i schemat bazy bez zmian.
 Testy geokodera używają odpowiedzi zastępczych, nie obciążają publicznej usługi.
+
+## Wygląd zestawów
+
+Panel „Wygląd zestawu” ustawia kolor oraz tryb zwykłych punktów lub kół.
+Tylko w trybie kół widoczne są: promień w metrach (>0), wypełnienie 0–0,9
+(0 = przezroczyste, 0,9 = 90% krycia) i grubość obrysu 0–20 px.
+Domyślnie: punkty; ustawienia kół: 100 m, krycie 0,2, obrys 2 px.
+Zmiana jest stosowana dopiero po „Zapisz wygląd”.
+
+`src/appearance.js` definiuje domyślne wartości i walidację. Ustawienia są
+w opcjonalnym `snapshot.appearance[datasetId]`, nie we właściwościach punktów.
+Kolor nadal pochodzi z `catalog.datasets[].color`. Brak wpisu daje dotychczasowe
+punkty bez modyfikowania istniejącej bazy. Schemat IndexedDB pozostaje 1.
+Backup v1 obejmuje cały snapshot wraz z wyglądem. Stare kopie bez appearance
+są poprawne i renderują zwykłe punkty; pojedynczy GeoJSON pozostaje niezmieniony.
+Usunięcie zestawu usuwa też jego wpis wyglądu. Zastąpienie jego punktów przez
+import zachowuje ustawienia zestawu, a odtworzenie kopii przywraca jej wygląd.
+
+Koła Leaflet (promień w metrach, nie pikselach) są w osobnej warstwie pod
+znacznikami i nie przechwytują kliknięć. Środkowy punkt pozostaje uchwytem do
+szczegółów, etykiet i pomiaru dokładnej lokalizacji. Kliknięcie powierzchni
+koła poza środkiem trafia do mapy lub punktu innego zestawu. Koła chowają się
+razem z zestawem. Nie zmieniają pomiaru ani geometrii zapisanych punktów.
+Wielkie promienie i wiele nakładających się kół mogą pogarszać czytelność mapy.
